@@ -18,7 +18,7 @@ function main(): void {
 
   const dbHandle = openDb(opts.dbPath);
 
-  const app = createApp();
+  const app = createApp({ db: dbHandle.db });
 
   try {
     const handle = serveApp({ port: opts.port, app });

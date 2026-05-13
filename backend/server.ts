@@ -1,10 +1,31 @@
 import { VERSION } from '@shared/version';
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
+import type { Db } from './db/client';
+import { makeCreateContext } from './trpc/context';
+import { appRouter } from './trpc/router';
 
-export function createApp(): Hono {
+const TRPC_PREFIX = '/api/trpc';
+
+export type AppDeps = {
+  db: Db;
+};
+
+export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.get('/', (c) => c.text(`jottapp v${VERSION}\n`));
   app.get('/healthz', (c) => c.json({ ok: true, version: VERSION }));
+
+  const createContext = makeCreateContext({ db: deps.db });
+  app.all(`${TRPC_PREFIX}/*`, (c) =>
+    fetchRequestHandler({
+      endpoint: TRPC_PREFIX,
+      req: c.req.raw,
+      router: appRouter,
+      createContext,
+    }),
+  );
+
   return app;
 }
 
