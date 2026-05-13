@@ -1,5 +1,6 @@
 import { VERSION } from '@shared/version';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
+import { openDb } from './db/client';
 import { createApp, PortInUseError, serveApp } from './server';
 
 function main(): void {
@@ -15,19 +16,30 @@ function main(): void {
     throw err;
   }
 
+  const dbHandle = openDb(opts.dbPath);
+
   const app = createApp();
 
   try {
     const handle = serveApp({ port: opts.port, app });
     process.stdout.write(`jottapp v${VERSION} — ${handle.url}\n`);
+    process.stdout.write(`db: ${opts.dbPath}\n`);
     process.stdout.write('Press Ctrl+C to stop.\n');
   } catch (err) {
+    dbHandle.close();
     if (err instanceof PortInUseError) {
       process.stderr.write(`error: ${err.message}\n`);
       process.exit(1);
     }
     throw err;
   }
+
+  const shutdown = (): void => {
+    dbHandle.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 main();
