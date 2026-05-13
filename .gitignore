@@ -21,3 +21,4 @@ jottapp-*
 .DS_Store
 .vscode/
 .idea/
+.claude/
