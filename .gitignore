@@ -1,0 +1,23 @@
+node_modules/
+dist/
+
+# Build output
+jottapp
+jottapp-*
+!jottapp-*.md
+
+# Local SQLite databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/

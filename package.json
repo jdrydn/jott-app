@@ -1,0 +1,23 @@
+{
+  "name": "jottapp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Jot it down — standalone, offline-first, timestamped journal.",
+  "type": "module",
+  "engines": {
+    "bun": ">=1.3.13"
+  },
+  "packageManager": "bun@1.3.13",
+  "scripts": {
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3"
+  }
+}
