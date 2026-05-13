@@ -2,6 +2,7 @@ import { VERSION } from '@shared/version';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
 import type { Db } from './db/client';
+import { assets, indexHtml } from './staticAssets.generated';
 import { makeCreateContext } from './trpc/context';
 import { appRouter } from './trpc/router';
 
@@ -13,7 +14,6 @@ export type AppDeps = {
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
-  app.get('/', (c) => c.text(`jottapp v${VERSION}\n`));
   app.get('/healthz', (c) => c.json({ ok: true, version: VERSION }));
 
   const createContext = makeCreateContext({ db: deps.db });
@@ -26,7 +26,24 @@ export function createApp(deps: AppDeps): Hono {
     }),
   );
 
+  if (assets.size > 0) mountStatic(app);
+
   return app;
+}
+
+function mountStatic(app: Hono): void {
+  app.get('*', (c) => {
+    if (c.req.path.startsWith('/api/')) return c.notFound();
+    const lookup = c.req.path === '/' ? '/index.html' : c.req.path;
+    const filePath = assets.get(lookup);
+    if (filePath) return new Response(Bun.file(filePath));
+    if (indexHtml) {
+      return new Response(Bun.file(indexHtml), {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+    }
+    return c.notFound();
+  });
 }
 
 export type ServerHandle = {

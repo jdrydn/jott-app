@@ -5,6 +5,7 @@ dist/
 jottapp
 jottapp-*
 !jottapp-*.md
+.*.bun-build
 
 # Local SQLite databases
 *.db

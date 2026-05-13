@@ -1,6 +1,7 @@
 import { VERSION } from '@shared/version';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
 import { openDb } from './db/client';
+import { openBrowser } from './openBrowser';
 import { createApp, PortInUseError, serveApp } from './server';
 
 function main(): void {
@@ -22,9 +23,11 @@ function main(): void {
 
   try {
     const handle = serveApp({ port: opts.port, app });
-    process.stdout.write(`jottapp v${VERSION} — ${handle.url}\n`);
+    const openingNote = opts.open ? ' (opening browser…)' : '';
+    process.stdout.write(`jottapp v${VERSION} — ${handle.url}${openingNote}\n`);
     process.stdout.write(`db: ${opts.dbPath}\n`);
     process.stdout.write('Press Ctrl+C to stop.\n');
+    if (opts.open) openBrowser(handle.url);
   } catch (err) {
     dbHandle.close();
     if (err instanceof PortInUseError) {
