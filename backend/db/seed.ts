@@ -1,4 +1,5 @@
 import { ulid } from 'ulid';
+import { reconcileEntryTags } from '../tags/reconcile';
 import type { Db } from './client';
 import { entries } from './schema';
 
@@ -102,14 +103,16 @@ export function seedDemoData(db: Db, now: Date = new Date()): number {
     day.setDate(day.getDate() - f.daysAgo);
     day.setHours(f.hour, f.minute, 0, 0);
     const ts = day.getTime();
+    const id = ulid(ts);
     db.insert(entries)
       .values({
-        id: ulid(ts),
+        id,
         body: f.body,
         createdAt: ts,
         updatedAt: ts,
       })
       .run();
+    reconcileEntryTags(db, id, f.body, ts);
   }
   return FIXTURES.length;
 }

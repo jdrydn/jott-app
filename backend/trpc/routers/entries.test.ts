@@ -1,8 +1,10 @@
 import { Database } from 'bun:sqlite';
 import { beforeEach, describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from '../../db/migrate';
 import * as schema from '../../db/schema';
+import { entryTags, tags } from '../../db/schema';
 import { appRouter } from '../router';
 import { createCallerFactory } from '../trpc';
 
@@ -62,6 +64,27 @@ describe('entries.list', () => {
     await expect(s.caller.entries.list({ limit: 0 })).rejects.toThrow();
     await expect(s.caller.entries.list({ limit: 500 })).rejects.toThrow();
   });
+
+  test('attaches tag links per entry', async () => {
+    await s.caller.entries.create({ body: 'hi @priya' });
+    const list = await s.caller.entries.list();
+    expect(list[0]?.tags).toHaveLength(1);
+    expect(list[0]?.tags[0]).toMatchObject({
+      nameWhenLinked: 'priya',
+      tag: { type: 'user', name: 'priya' },
+    });
+  });
+
+  test('tag link reflects current tag.name after rename (display swap)', async () => {
+    await s.caller.entries.create({ body: '#oldname is the topic' });
+    const tag = (await s.caller.tags.list()).find((t) => t.name === 'oldname');
+    if (!tag) throw new Error('unreachable');
+    await s.caller.tags.rename({ id: tag.id, name: 'newname' });
+
+    const list = await s.caller.entries.list();
+    expect(list[0]?.tags[0]?.nameWhenLinked).toBe('oldname');
+    expect(list[0]?.tags[0]?.tag.name).toBe('newname');
+  });
 });
 
 describe('entries.create', () => {
@@ -101,5 +124,17 @@ describe('entries.create', () => {
       ids.add(e.id);
     }
     expect(ids.size).toBe(10);
+  });
+
+  test('reconciles tags from body on create', async () => {
+    const db = drizzle(s.raw, { schema });
+    const entry = await s.caller.entries.create({ body: 'met @priya about #q3-plan' });
+    const allTags = db.select().from(tags).all();
+    expect(allTags.map((t) => `${t.type}:${t.name}`).sort()).toEqual([
+      'topic:q3-plan',
+      'user:priya',
+    ]);
+    const links = db.select().from(entryTags).where(eq(entryTags.entryId, entry.id)).all();
+    expect(links).toHaveLength(2);
   });
 });

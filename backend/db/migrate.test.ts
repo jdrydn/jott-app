@@ -70,4 +70,97 @@ describe('migrate', () => {
     const row = db.query('PRAGMA user_version').get() as { user_version: number };
     expect(row.user_version).toBe(0);
   });
+
+  test('creates tags + entry_tags tables', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const names = (
+      db.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as Array<{
+        name: string;
+      }>
+    ).map((r) => r.name);
+    expect(names).toContain('tags');
+    expect(names).toContain('entry_tags');
+  });
+
+  test('tags table has expected columns', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const cols = db.query("PRAGMA table_info('tags')").all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+      pk: number;
+    }>;
+    const byName = new Map(cols.map((c) => [c.name, c]));
+    expect(byName.get('id')).toMatchObject({ type: 'TEXT', notnull: 1, pk: 1 });
+    expect(byName.get('type')).toMatchObject({ type: 'TEXT', notnull: 1 });
+    expect(byName.get('name')).toMatchObject({ type: 'TEXT', notnull: 1 });
+    expect(byName.get('initials')).toMatchObject({ type: 'TEXT', notnull: 1 });
+    expect(byName.get('color')).toMatchObject({ type: 'TEXT', notnull: 1 });
+    expect(byName.get('created_at')).toMatchObject({ type: 'INTEGER', notnull: 1 });
+    expect(byName.get('updated_at')).toMatchObject({ type: 'INTEGER', notnull: 1 });
+  });
+
+  test('tags type CHECK constraint rejects invalid values', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    expect(() =>
+      db.exec(
+        `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+         VALUES ('t1', 'bogus', 'x', 'X', '#000', 1, 1)`,
+      ),
+    ).toThrow();
+  });
+
+  test('tags (type, name) is unique', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    db.exec(
+      `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+       VALUES ('t1', 'topic', 'work', 'WO', '#000', 1, 1)`,
+    );
+    expect(() =>
+      db.exec(
+        `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+         VALUES ('t2', 'topic', 'work', 'WO', '#000', 2, 2)`,
+      ),
+    ).toThrow();
+    db.exec(
+      `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+       VALUES ('t3', 'user', 'work', 'WO', '#000', 3, 3)`,
+    );
+  });
+
+  test('entry_tags cascades on entry delete and on tag delete', () => {
+    const db = new Database(':memory:');
+    db.exec('PRAGMA foreign_keys = ON');
+    migrate(db);
+    db.exec(
+      `INSERT INTO entries (id, created_at, updated_at, body) VALUES ('e1', 1, 1, 'hi #work')`,
+    );
+    db.exec(
+      `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+       VALUES ('t1', 'topic', 'work', 'WO', '#000', 1, 1)`,
+    );
+    db.exec(
+      `INSERT INTO entry_tags (entry_id, tag_id, name_when_linked, created_at)
+       VALUES ('e1', 't1', 'work', 1)`,
+    );
+    db.exec(`DELETE FROM tags WHERE id = 't1'`);
+    const after = db.query('SELECT COUNT(*) AS n FROM entry_tags').get() as { n: number };
+    expect(after.n).toBe(0);
+
+    db.exec(
+      `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+       VALUES ('t2', 'topic', 'work', 'WO', '#000', 1, 1)`,
+    );
+    db.exec(
+      `INSERT INTO entry_tags (entry_id, tag_id, name_when_linked, created_at)
+       VALUES ('e1', 't2', 'work', 1)`,
+    );
+    db.exec(`DELETE FROM entries WHERE id = 'e1'`);
+    const after2 = db.query('SELECT COUNT(*) AS n FROM entry_tags').get() as { n: number };
+    expect(after2.n).toBe(0);
+  });
 });

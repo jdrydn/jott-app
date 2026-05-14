@@ -1,10 +1,10 @@
-import type { Entry } from '@backend/db/schema';
+import type { EntryWithTags } from '@backend/trpc/routers/entries';
 
 export type DayGroup = {
   dateKey: string;
   label: string;
   dateFormatted: string;
-  entries: Entry[];
+  entries: EntryWithTags[];
 };
 
 function startOfDay(d: Date): Date {
@@ -20,13 +20,13 @@ function dateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function groupByDay(entries: Entry[], now: Date = new Date()): DayGroup[] {
+export function groupByDay(entries: EntryWithTags[], now: Date = new Date()): DayGroup[] {
   const today = startOfDay(now);
   const yesterday = startOfDay(new Date(today.getTime() - 86_400_000));
   const todayKey = dateKey(today);
   const yesterdayKey = dateKey(yesterday);
 
-  const byDate = new Map<string, Entry[]>();
+  const byDate = new Map<string, EntryWithTags[]>();
   for (const e of entries) {
     const key = dateKey(startOfDay(new Date(e.createdAt)));
     const arr = byDate.get(key) ?? [];

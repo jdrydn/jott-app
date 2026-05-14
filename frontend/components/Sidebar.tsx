@@ -1,18 +1,23 @@
+import type { TagWithStats } from '@backend/trpc/routers/tags';
 import type { ReactNode } from 'react';
-import {
-  derivePeople,
-  deriveTopics,
-  formatRelative,
-  type Mention,
-  type Topic,
-} from '../lib/derive';
+import { formatRelative } from '../lib/derive';
 import { trpc } from '../trpc';
 
 export function Sidebar() {
-  const list = trpc.entries.list.useQuery();
-  const entries = list.data ?? [];
-  const people = derivePeople(entries);
-  const topics = deriveTopics(entries);
+  const list = trpc.tags.list.useQuery();
+  const all = list.data ?? [];
+
+  const people = all
+    .filter(
+      (t): t is TagWithStats & { lastSeen: number } => t.type === 'user' && t.lastSeen != null,
+    )
+    .sort((a, b) => b.lastSeen - a.lastSeen)
+    .slice(0, 8);
+
+  const topics = all
+    .filter((t) => t.type === 'topic' && t.count > 0)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 10);
 
   return (
     <div className="space-y-7">
@@ -27,12 +32,15 @@ export function Sidebar() {
   );
 }
 
-function PeopleList({ people }: { people: Mention[] }) {
+function PeopleList({ people }: { people: (TagWithStats & { lastSeen: number })[] }) {
   return (
     <ul className="space-y-2.5">
       {people.map((p) => (
-        <li key={p.name} className="flex items-center gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 font-mono text-[10px] font-semibold uppercase text-blue-700">
+        <li key={p.id} className="flex items-center gap-3">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold uppercase text-white"
+            style={{ backgroundColor: p.color }}
+          >
             {p.initials}
           </div>
           <span className="flex-1 truncate text-sm capitalize text-gray-800">{p.name}</span>
@@ -43,12 +51,14 @@ function PeopleList({ people }: { people: Mention[] }) {
   );
 }
 
-function TopicList({ topics }: { topics: Topic[] }) {
+function TopicList({ topics }: { topics: TagWithStats[] }) {
   return (
     <ul className="space-y-1.5">
       {topics.map((t) => (
-        <li key={t.name} className="flex items-center gap-2">
-          <span className="font-mono text-slate-500">#</span>
+        <li key={t.id} className="flex items-center gap-2">
+          <span className="font-mono" style={{ color: t.color }}>
+            #
+          </span>
           <span className="flex-1 truncate text-sm text-gray-800">{t.name}</span>
           <span className="text-xs text-gray-400">{t.count}</span>
         </li>

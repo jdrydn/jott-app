@@ -1,8 +1,7 @@
-import type { Entry } from '@backend/db/schema';
-import { useMemo, useState } from 'react';
+import type { EntryWithTags } from '@backend/trpc/routers/entries';
 import { type DayGroup, formatTime, groupByDay } from '../lib/format';
+import { MarkdownView } from '../lib/markdown/MarkdownView';
 import { trpc } from '../trpc';
-import { BodyText } from './BodyText';
 
 export function EntryFeed() {
   const list = trpc.entries.list.useQuery();
@@ -54,40 +53,14 @@ function DaySection({ group }: { group: DayGroup }) {
   );
 }
 
-function EntryRow({ entry }: { entry: Entry }) {
-  const [expanded, setExpanded] = useState(false);
-  const paragraphs = useMemo(
-    () =>
-      entry.body
-        .split(/\n{2,}/)
-        .map((p) => p.trim())
-        .filter((p) => p.length > 0),
-    [entry.body],
-  );
-  const visible = expanded ? paragraphs : paragraphs.slice(0, 1);
-  const hiddenCount = paragraphs.length - 1;
-
+function EntryRow({ entry }: { entry: EntryWithTags }) {
   return (
     <li className="flex gap-6">
       <span className="mt-0.5 w-12 shrink-0 font-mono text-xs text-gray-400">
         {formatTime(entry.createdAt)}
       </span>
-      <div className="flex-1 space-y-2 text-sm leading-relaxed text-gray-800">
-        {visible.map((para, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: paragraphs are derived from a stable body
-          <p key={i} className="whitespace-pre-wrap">
-            <BodyText>{para}</BodyText>
-          </p>
-        ))}
-        {!expanded && hiddenCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="text-xs text-gray-500 hover:text-gray-700"
-          >
-            Read full note ( {hiddenCount} more {hiddenCount === 1 ? 'paragraph' : 'paragraphs'} ) →
-          </button>
-        ) : null}
+      <div className="flex-1 space-y-2">
+        <MarkdownView body={entry.body} links={entry.tags} />
       </div>
     </li>
   );
