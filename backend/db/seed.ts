@@ -12,12 +12,6 @@ type Fixture = {
 const FIXTURES: Fixture[] = [
   {
     daysAgo: 1,
-    hour: 18,
-    minute: 44,
-    body: '#progress-tracker discussing with @simon about this.',
-  },
-  {
-    daysAgo: 1,
     hour: 13,
     minute: 45,
     body:
