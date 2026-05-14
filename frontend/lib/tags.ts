@@ -3,6 +3,7 @@ import type { TagWithStats } from '@backend/trpc/routers/tags';
 import type { TagType } from '@shared/tags';
 
 export type ResolvedTag = {
+  id: string;
   type: TagType;
   name: string;
   initials: string;
@@ -13,6 +14,7 @@ export function buildLinkLookup(links: readonly EntryTagLink[]): Map<string, Res
   const out = new Map<string, ResolvedTag>();
   for (const l of links) {
     out.set(`${l.tag.type}:${l.nameWhenLinked.toLowerCase()}`, {
+      id: l.tag.id,
       type: l.tag.type,
       name: l.tag.name,
       initials: l.tag.initials,
@@ -26,6 +28,7 @@ export function buildLiveLookup(allTags: readonly TagWithStats[]): Map<string, R
   const out = new Map<string, ResolvedTag>();
   for (const t of allTags) {
     out.set(`${t.type}:${t.name}`, {
+      id: t.id,
       type: t.type,
       name: t.name,
       initials: t.initials,

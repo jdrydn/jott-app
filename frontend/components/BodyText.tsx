@@ -6,14 +6,19 @@ import { buildLinkLookup, type ResolvedTag, resolveToken } from '../lib/tags';
 export type BodyTextProps = {
   children: string;
   links?: readonly EntryTagLink[];
+  onTagClick?: (tagId: string) => void;
 };
 
-export function BodyText({ children, links }: BodyTextProps) {
+export function BodyText({ children, links, onTagClick }: BodyTextProps) {
   const lookup = links ? buildLinkLookup(links) : undefined;
-  return <>{renderTokens(children, lookup)}</>;
+  return <>{renderTokens(children, lookup, onTagClick)}</>;
 }
 
-function renderTokens(text: string, lookup?: Map<string, ResolvedTag>): ReactNode[] {
+function renderTokens(
+  text: string,
+  lookup?: Map<string, ResolvedTag>,
+  onTagClick?: (tagId: string) => void,
+): ReactNode[] {
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let key = 0;
@@ -24,7 +29,15 @@ function renderTokens(text: string, lookup?: Map<string, ResolvedTag>): ReactNod
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
     const type: TagType = sigil === '#' ? 'topic' : 'user';
     const resolved = lookup ? resolveToken(type, word, lookup) : undefined;
-    nodes.push(<Chip key={key++} sigil={sigil} word={word} resolved={resolved} />);
+    nodes.push(
+      <Chip
+        key={key++}
+        sigil={sigil}
+        word={word}
+        resolved={resolved}
+        onClick={resolved && onTagClick ? () => onTagClick(resolved.id) : undefined}
+      />,
+    );
     lastIndex = start + match[0].length;
   }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
@@ -35,10 +48,12 @@ function Chip({
   sigil,
   word,
   resolved,
+  onClick,
 }: {
   sigil: '#' | '@';
   word: string;
   resolved?: ResolvedTag;
+  onClick?: () => void;
 }) {
   if (!resolved) {
     return (
@@ -49,29 +64,52 @@ function Chip({
     );
   }
   const label = resolved.name;
+  const interactive = onClick != null;
+
   if (sigil === '#') {
+    const className = `rounded px-1.5 py-0.5 font-medium ${
+      interactive ? 'cursor-pointer hover:brightness-95' : ''
+    }`;
+    const style = { backgroundColor: tint(resolved.color), color: resolved.color };
+    if (interactive) {
+      return (
+        <button type="button" onClick={onClick} className={className} style={style}>
+          #{label}
+        </button>
+      );
+    }
     return (
-      <span
-        className="rounded px-1.5 py-0.5 font-medium"
-        style={{ backgroundColor: tint(resolved.color), color: resolved.color }}
-      >
+      <span className={className} style={style}>
         #{label}
       </span>
     );
   }
-  return (
-    <span className="inline-flex items-center gap-1 align-baseline">
+
+  const innerStyle = { color: resolved.color };
+  const inner = (
+    <>
       <span
         className="inline-flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] font-semibold uppercase text-white"
         style={{ backgroundColor: resolved.color }}
       >
         {resolved.initials}
       </span>
-      <span className="font-medium" style={{ color: resolved.color }}>
+      <span className="font-medium" style={innerStyle}>
         @{label}
       </span>
-    </span>
+    </>
   );
+  const wrapClass = `inline-flex items-center gap-1 align-baseline ${
+    interactive ? 'cursor-pointer hover:opacity-80' : ''
+  }`;
+  if (interactive) {
+    return (
+      <button type="button" onClick={onClick} className={wrapClass}>
+        {inner}
+      </button>
+    );
+  }
+  return <span className={wrapClass}>{inner}</span>;
 }
 
 function tint(hex: string): string {

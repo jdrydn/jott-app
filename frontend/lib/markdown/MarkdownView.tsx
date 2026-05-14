@@ -4,30 +4,33 @@ import { BodyText } from '../../components/BodyText';
 import { markdownToDoc } from './toProseMirror';
 import type { PMBlockNode, PMInlineNode, PMMark } from './types';
 
-export function MarkdownView({ body, links }: { body: string; links?: readonly EntryTagLink[] }) {
+type ViewProps = {
+  links?: readonly EntryTagLink[];
+  onTagClick?: (tagId: string) => void;
+};
+
+export function MarkdownView({ body, links, onTagClick }: { body: string } & ViewProps) {
   const doc = markdownToDoc(body);
   return (
     <>
       {doc.content.map((block, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-        <BlockView key={i} node={block} links={links} />
+        <BlockView key={i} node={block} links={links} onTagClick={onTagClick} />
       ))}
     </>
   );
 }
 
-function BlockView({
-  node,
-  links,
-}: {
-  node: PMBlockNode;
-  links?: readonly EntryTagLink[];
-}): ReactNode {
+function BlockView({ node, links, onTagClick }: { node: PMBlockNode } & ViewProps): ReactNode {
   switch (node.type) {
     case 'paragraph':
       return (
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-          <Inline nodes={(node.content ?? []) as PMInlineNode[]} links={links} />
+          <Inline
+            nodes={(node.content ?? []) as PMInlineNode[]}
+            links={links}
+            onTagClick={onTagClick}
+          />
         </p>
       );
     case 'horizontalRule':
@@ -47,7 +50,7 @@ function BlockView({
         <blockquote className="border-l-2 border-gray-300 pl-3 text-sm text-gray-600">
           {((node.content as PMBlockNode[] | undefined) ?? []).map((c, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-            <BlockView key={i} node={c} links={links} />
+            <BlockView key={i} node={c} links={links} onTagClick={onTagClick} />
           ))}
         </blockquote>
       );
@@ -56,7 +59,7 @@ function BlockView({
         <ul className="list-disc pl-5 text-sm text-gray-800 space-y-1">
           {((node.content as PMBlockNode[] | undefined) ?? []).map((item, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-            <ListItemView key={i} node={item} links={links} />
+            <ListItemView key={i} node={item} links={links} onTagClick={onTagClick} />
           ))}
         </ul>
       );
@@ -66,7 +69,7 @@ function BlockView({
         <ol start={start} className="list-decimal pl-5 text-sm text-gray-800 space-y-1">
           {((node.content as PMBlockNode[] | undefined) ?? []).map((item, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-            <ListItemView key={i} node={item} links={links} />
+            <ListItemView key={i} node={item} links={links} onTagClick={onTagClick} />
           ))}
         </ol>
       );
@@ -76,7 +79,7 @@ function BlockView({
         <ul className="space-y-1 text-sm text-gray-800">
           {((node.content as PMBlockNode[] | undefined) ?? []).map((item, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-            <TaskItemView key={i} node={item} links={links} />
+            <TaskItemView key={i} node={item} links={links} onTagClick={onTagClick} />
           ))}
         </ul>
       );
@@ -85,18 +88,18 @@ function BlockView({
   }
 }
 
-function ListItemView({ node, links }: { node: PMBlockNode; links?: readonly EntryTagLink[] }) {
+function ListItemView({ node, links, onTagClick }: { node: PMBlockNode } & ViewProps) {
   return (
     <li>
       {((node.content as PMBlockNode[] | undefined) ?? []).map((c, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-        <BlockView key={i} node={c} links={links} />
+        <BlockView key={i} node={c} links={links} onTagClick={onTagClick} />
       ))}
     </li>
   );
 }
 
-function TaskItemView({ node, links }: { node: PMBlockNode; links?: readonly EntryTagLink[] }) {
+function TaskItemView({ node, links, onTagClick }: { node: PMBlockNode } & ViewProps) {
   const checked = !!node.attrs?.checked;
   return (
     <li className="flex items-start gap-2">
@@ -109,20 +112,14 @@ function TaskItemView({ node, links }: { node: PMBlockNode; links?: readonly Ent
       <div className="flex-1">
         {((node.content as PMBlockNode[] | undefined) ?? []).map((c, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: nodes are derived from a stable body
-          <BlockView key={i} node={c} links={links} />
+          <BlockView key={i} node={c} links={links} onTagClick={onTagClick} />
         ))}
       </div>
     </li>
   );
 }
 
-function Inline({
-  nodes,
-  links,
-}: {
-  nodes: PMInlineNode[];
-  links?: readonly EntryTagLink[];
-}): ReactNode {
+function Inline({ nodes, links, onTagClick }: { nodes: PMInlineNode[] } & ViewProps): ReactNode {
   const out: ReactNode[] = [];
   nodes.forEach((n, i) => {
     if (n.type === 'hardBreak') {
@@ -137,7 +134,9 @@ function Inline({
       n.text
     ) : (
       // biome-ignore lint/correctness/useJsxKeyInIterable: this element is wrapped by MarkedSpan below
-      <BodyText links={links}>{n.text}</BodyText>
+      <BodyText links={links} onTagClick={onTagClick}>
+        {n.text}
+      </BodyText>
     );
     out.push(
       // biome-ignore lint/suspicious/noArrayIndexKey: inline nodes derived from a stable body

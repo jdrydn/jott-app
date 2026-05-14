@@ -138,3 +138,255 @@ describe('entries.create', () => {
     expect(links).toHaveLength(2);
   });
 });
+
+describe('entries.update', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('updates body, bumps updatedAt, preserves createdAt', async () => {
+    const created = await s.caller.entries.create({ body: 'original' });
+    await Bun.sleep(2);
+    const updated = await s.caller.entries.update({ id: created.id, body: 'edited' });
+    expect(updated.id).toBe(created.id);
+    expect(updated.body).toBe('edited');
+    expect(updated.createdAt).toBe(created.createdAt);
+    expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
+  });
+
+  test('reconciles tags on update — adds new, removes stale', async () => {
+    const db = drizzle(s.raw, { schema });
+    const created = await s.caller.entries.create({ body: 'about #q3-plan' });
+    const before = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(before).toHaveLength(1);
+
+    await s.caller.entries.update({ id: created.id, body: 'about #q4-plan and @priya' });
+
+    const after = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(after).toHaveLength(2);
+    const names = (await s.caller.tags.list()).filter((t) => t.count > 0).map((t) => t.name);
+    expect(names.sort()).toEqual(['priya', 'q4-plan']);
+  });
+
+  test('rejects update on missing id', async () => {
+    await expect(s.caller.entries.update({ id: 'nope', body: 'x' })).rejects.toThrow();
+  });
+
+  test('rejects update on a soft-deleted entry', async () => {
+    const created = await s.caller.entries.create({ body: 'doomed' });
+    s.raw.run('UPDATE entries SET deleted_at = ? WHERE id = ?', [Date.now(), created.id]);
+    await expect(s.caller.entries.update({ id: created.id, body: 'too late' })).rejects.toThrow();
+  });
+
+  test('rejects empty / oversized body', async () => {
+    const created = await s.caller.entries.create({ body: 'hello' });
+    await expect(s.caller.entries.update({ id: created.id, body: '' })).rejects.toThrow();
+    await expect(
+      s.caller.entries.update({ id: created.id, body: 'x'.repeat(100_001) }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('entries.delete + restore', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('soft-deletes the entry', async () => {
+    const created = await s.caller.entries.create({ body: 'doomed' });
+    const deleted = await s.caller.entries.delete({ id: created.id });
+    expect(deleted.id).toBe(created.id);
+    expect(deleted.deletedAt).toBeGreaterThan(0);
+    const list = await s.caller.entries.list();
+    expect(list.find((e) => e.id === created.id)).toBeUndefined();
+  });
+
+  test('list({trash:true}) returns only deleted entries', async () => {
+    const a = await s.caller.entries.create({ body: 'kept' });
+    const b = await s.caller.entries.create({ body: 'dropped' });
+    await s.caller.entries.delete({ id: b.id });
+
+    const live = await s.caller.entries.list();
+    const trashed = await s.caller.entries.list({ trash: true });
+    expect(live.map((e) => e.id)).toEqual([a.id]);
+    expect(trashed.map((e) => e.id)).toEqual([b.id]);
+  });
+
+  test('restore puts the entry back in the active list', async () => {
+    const created = await s.caller.entries.create({ body: 'oops' });
+    await s.caller.entries.delete({ id: created.id });
+    const restored = await s.caller.entries.restore({ id: created.id });
+    expect(restored.deletedAt).toBeNull();
+    const list = await s.caller.entries.list();
+    expect(list.map((e) => e.id)).toEqual([created.id]);
+  });
+
+  test('delete is idempotent on already-deleted entry', async () => {
+    const created = await s.caller.entries.create({ body: 'x' });
+    const first = await s.caller.entries.delete({ id: created.id });
+    const second = await s.caller.entries.delete({ id: created.id });
+    expect(second.deletedAt).toBe(first.deletedAt);
+  });
+
+  test('restore is a no-op on already-active entry', async () => {
+    const created = await s.caller.entries.create({ body: 'x' });
+    const result = await s.caller.entries.restore({ id: created.id });
+    expect(result.deletedAt).toBeNull();
+  });
+
+  test('delete + restore both throw NOT_FOUND for missing id', async () => {
+    await expect(s.caller.entries.delete({ id: 'nope' })).rejects.toThrow();
+    await expect(s.caller.entries.restore({ id: 'nope' })).rejects.toThrow();
+  });
+
+  test('deleted entries keep their tag links (so restore brings them back)', async () => {
+    const db = drizzle(s.raw, { schema });
+    const created = await s.caller.entries.create({ body: '#kept-tag here' });
+    const linksBefore = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(linksBefore).toHaveLength(1);
+    await s.caller.entries.delete({ id: created.id });
+    const linksAfter = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(linksAfter).toHaveLength(1);
+  });
+});
+
+describe('entries.search', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('returns body matches with attached tag links', async () => {
+    await s.caller.entries.create({ body: 'shipping the launch with @priya' });
+    await s.caller.entries.create({ body: 'rolling back the migration' });
+
+    const hits = await s.caller.entries.search({ q: 'launch' });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('launch');
+    expect(hits[0]?.tags.map((t) => t.tag.name)).toContain('priya');
+  });
+
+  test('prefix-matches the last alnum token', async () => {
+    await s.caller.entries.create({ body: 'production rollout incoming' });
+    await s.caller.entries.create({ body: 'staging tests passing' });
+
+    const hits = await s.caller.entries.search({ q: 'roll' });
+    expect(hits.map((h) => h.body)).toEqual(['production rollout incoming']);
+  });
+
+  test('hyphenated tag tokens (e.g. q3-plan) match', async () => {
+    await s.caller.entries.create({ body: 'sync about #q3-plan with @priya' });
+    await s.caller.entries.create({ body: 'unrelated note' });
+
+    const hits = await s.caller.entries.search({ q: 'q3-plan' });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('q3-plan');
+  });
+
+  test('strips leading sigils so #q3 still matches', async () => {
+    await s.caller.entries.create({ body: 'about #q3-plan' });
+    const hits = await s.caller.entries.search({ q: '#q3' });
+    expect(hits).toHaveLength(1);
+  });
+
+  test('excludes soft-deleted entries', async () => {
+    const a = await s.caller.entries.create({ body: 'launch announcement' });
+    await s.caller.entries.delete({ id: a.id });
+
+    const hits = await s.caller.entries.search({ q: 'launch' });
+    expect(hits).toHaveLength(0);
+  });
+
+  test('reflects edits after entries.update (FTS triggers fire)', async () => {
+    const created = await s.caller.entries.create({ body: 'first body about apples' });
+    let hits = await s.caller.entries.search({ q: 'apples' });
+    expect(hits).toHaveLength(1);
+
+    await s.caller.entries.update({ id: created.id, body: 'rewritten about oranges' });
+
+    hits = await s.caller.entries.search({ q: 'apples' });
+    expect(hits).toHaveLength(0);
+    hits = await s.caller.entries.search({ q: 'oranges' });
+    expect(hits).toHaveLength(1);
+  });
+
+  test('rejects empty / oversized q', async () => {
+    await expect(s.caller.entries.search({ q: '' })).rejects.toThrow();
+    await expect(s.caller.entries.search({ q: 'x'.repeat(201) })).rejects.toThrow();
+  });
+
+  test('returns empty for query with no extractable tokens', async () => {
+    await s.caller.entries.create({ body: 'something' });
+    const hits = await s.caller.entries.search({ q: '!!!' });
+    expect(hits).toEqual([]);
+  });
+});
+
+describe('entries.list filters', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  async function createAt(body: string, createdAt: number): Promise<{ id: string }> {
+    const created = await s.caller.entries.create({ body });
+    s.raw.run('UPDATE entries SET created_at = ? WHERE id = ?', [createdAt, created.id]);
+    return { id: created.id };
+  }
+
+  test('tagId filter returns only entries linked to that tag', async () => {
+    await s.caller.entries.create({ body: 'about #work today' });
+    await s.caller.entries.create({ body: 'about #play tonight' });
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const hits = await s.caller.entries.list({ tagId: work.id });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('#work');
+  });
+
+  test('tagId returns empty when no entries link to the tag', async () => {
+    const hits = await s.caller.entries.list({ tagId: 'nope' });
+    expect(hits).toEqual([]);
+  });
+
+  test('from + to bound the createdAt window inclusively', async () => {
+    await createAt('first', 1_000);
+    await createAt('second', 2_000);
+    await createAt('third', 3_000);
+
+    const middle = await s.caller.entries.list({ from: 2_000, to: 2_000 });
+    expect(middle.map((e) => e.body)).toEqual(['second']);
+
+    const lowerOpen = await s.caller.entries.list({ to: 2_000 });
+    expect(lowerOpen.map((e) => e.body).sort()).toEqual(['first', 'second']);
+
+    const upperOpen = await s.caller.entries.list({ from: 2_000 });
+    expect(upperOpen.map((e) => e.body).sort()).toEqual(['second', 'third']);
+  });
+
+  test('combines tagId + date range as AND', async () => {
+    const a = await createAt('about #work yesterday', 1_000);
+    await createAt('about #work today', 3_000);
+    await createAt('about #play yesterday', 1_000);
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const hits = await s.caller.entries.list({ tagId: work.id, from: 500, to: 1_500 });
+    expect(hits.map((e) => e.id)).toEqual([a.id]);
+  });
+
+  test('filters do not bleed into trash mode', async () => {
+    const a = await s.caller.entries.create({ body: 'about #work' });
+    await s.caller.entries.delete({ id: a.id });
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const live = await s.caller.entries.list({ tagId: work.id });
+    expect(live).toEqual([]);
+    const trashed = await s.caller.entries.list({ trash: true, tagId: work.id });
+    expect(trashed.map((e) => e.id)).toEqual([a.id]);
+  });
+});
