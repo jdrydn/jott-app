@@ -21,7 +21,7 @@ function renderTokens(text: string): ReactNode[] {
 }
 
 function Chip({ sigil, word }: { sigil: '#' | '@'; word: string }) {
-  const cls = sigil === '#' ? 'bg-teal-50 text-teal-700' : 'bg-purple-50 text-purple-700';
+  const cls = sigil === '#' ? 'bg-slate-50 text-slate-700' : 'bg-purple-50 text-purple-700';
   return (
     <span className={`rounded px-1.5 py-0.5 font-medium ${cls}`}>
       {sigil}

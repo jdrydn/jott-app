@@ -30,7 +30,7 @@ function DaySection({ group }: { group: DayGroup }) {
     <section>
       <header className="mb-4 flex items-baseline justify-between border-b border-gray-200 pb-2">
         <div className="flex items-baseline gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-teal-700">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
             {group.label}
           </span>
           <span className="text-xs text-gray-400">{group.dateFormatted}</span>

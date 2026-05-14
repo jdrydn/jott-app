@@ -6,11 +6,11 @@ export function Header({ searchRef }: { searchRef?: Ref<HTMLInputElement> }) {
   return (
     <header className="flex items-center justify-between gap-4 py-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 font-bold text-white">
-          A
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500 font-bold text-white">
+          🗒️
         </div>
         <div className="flex items-baseline gap-3">
-          <h1 className="text-lg font-bold text-gray-900">Agenda</h1>
+          <h1 className="text-lg font-bold font-mono text-gray-900">jott</h1>
           <span className="text-gray-300">·</span>
           <span className="text-sm text-gray-500">{today}</span>
         </div>

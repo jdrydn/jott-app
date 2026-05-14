@@ -36,7 +36,7 @@ export function Composer({ textareaRef }: { textareaRef?: Ref<HTMLTextAreaElemen
   return (
     <form
       className={`mb-10 overflow-hidden rounded-lg border bg-white transition-colors ${
-        focused ? 'border-teal-400 ring-2 ring-teal-100' : 'border-gray-200'
+        focused ? 'border-slate-400 ring-2 ring-slate-100' : 'border-gray-200'
       }`}
       onSubmit={(e) => {
         e.preventDefault();
@@ -66,7 +66,7 @@ export function Composer({ textareaRef }: { textareaRef?: Ref<HTMLTextAreaElemen
           type="submit"
           disabled={!canSubmit}
           className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            canSubmit ? 'bg-teal-500 text-white hover:bg-teal-600' : 'bg-gray-100 text-gray-400'
+            canSubmit ? 'bg-slate-500 text-white hover:bg-slate-600' : 'bg-gray-100 text-gray-400'
           }`}
         >
           {create.isPending ? 'Saving…' : 'Save entry'}

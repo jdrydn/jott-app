@@ -48,7 +48,7 @@ function TopicList({ topics }: { topics: Topic[] }) {
     <ul className="space-y-1.5">
       {topics.map((t) => (
         <li key={t.name} className="flex items-center gap-2">
-          <span className="font-mono text-teal-500">#</span>
+          <span className="font-mono text-slate-500">#</span>
           <span className="flex-1 truncate text-sm text-gray-800">{t.name}</span>
           <span className="text-xs text-gray-400">{t.count}</span>
         </li>
@@ -95,8 +95,8 @@ function TipsBlock() {
         <TipRow keys="⌘⏎" label="save entry" />
       </ul>
       <p className="mt-3 text-xs text-gray-500">
-        Type <code className="font-mono text-teal-600">@</code> to mention,{' '}
-        <code className="font-mono text-teal-600">#</code> to tag.
+        Type <code className="font-mono text-slate-600">@</code> to mention,{' '}
+        <code className="font-mono text-slate-600">#</code> to tag.
       </p>
     </section>
   );
