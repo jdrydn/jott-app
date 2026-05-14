@@ -1,7 +1,15 @@
 import type { Ref } from 'react';
 import { formatHeaderDate } from '../lib/format';
 
-export function Header({ searchRef }: { searchRef?: Ref<HTMLInputElement> }) {
+export function Header({
+  searchRef,
+  trash,
+  onToggleTrash,
+}: {
+  searchRef?: Ref<HTMLInputElement>;
+  trash: boolean;
+  onToggleTrash: () => void;
+}) {
   const today = formatHeaderDate(new Date());
   return (
     <header className="flex items-center justify-between gap-4 py-4">
@@ -15,17 +23,31 @@ export function Header({ searchRef }: { searchRef?: Ref<HTMLInputElement> }) {
           <span className="text-sm text-gray-500">{today}</span>
         </div>
       </div>
-      <div className="flex w-80 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-        <SearchIcon />
-        <input
-          ref={searchRef}
-          type="search"
-          placeholder="Search entries, people, topics…"
-          className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none"
-        />
-        <kbd className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-xs text-gray-500">
-          ⌘K
-        </kbd>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleTrash}
+          className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            trash
+              ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+          title={trash ? 'Show active entries' : 'Show deleted entries'}
+        >
+          {trash ? 'Showing trash' : 'Show deleted'}
+        </button>
+        <div className="flex w-80 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <SearchIcon />
+          <input
+            ref={searchRef}
+            type="search"
+            placeholder="Search entries, people, topics…"
+            className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none"
+          />
+          <kbd className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-xs text-gray-500">
+            ⌘K
+          </kbd>
+        </div>
       </div>
     </header>
   );

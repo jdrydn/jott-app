@@ -1,24 +1,13 @@
-import type { TagWithStats } from '@backend/trpc/routers/tags';
-import type { TagType } from '@shared/tags';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import TaskItem from '@tiptap/extension-task-item';
-import TaskList from '@tiptap/extension-task-list';
-import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import {
   forwardRef,
   type KeyboardEvent,
   useCallback,
-  useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react';
-import { TagDecorations, type TagResolver } from '../lib/editor/tagDecorations';
-import { docToMarkdown } from '../lib/markdown/toMarkdown';
 import { trpc } from '../trpc';
+import { JottEditor, type JottEditorHandle } from './JottEditor';
 
 export type ComposerHandle = {
   focus: () => void;
@@ -26,105 +15,49 @@ export type ComposerHandle = {
 
 export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
   const [focused, setFocused] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(true);
+  const editorRef = useRef<JottEditorHandle>(null);
   const utils = trpc.useUtils();
-  const tagsQuery = trpc.tags.list.useQuery();
-
-  const tagsRef = useRef<TagWithStats[]>([]);
-  tagsRef.current = tagsQuery.data ?? [];
-
-  const resolveTag: TagResolver = useCallback((type, word) => {
-    const key = `${type}:${word.toLowerCase()}`;
-    for (const t of tagsRef.current) {
-      if (`${t.type as TagType}:${t.name}` === key) {
-        return { color: t.color, initials: t.initials, name: t.name };
-      }
-    }
-    return undefined;
-  }, []);
 
   const create = trpc.entries.create.useMutation({
     onSuccess: () => {
       utils.entries.list.invalidate();
       utils.tags.list.invalidate();
+      editorRef.current?.clear();
+      setIsEmpty(true);
     },
   });
 
-  const submitRef = useRef<() => void>(() => {});
-
-  const editor = useEditor({
-    extensions: useMemo(
-      () => [
-        StarterKit.configure({
-          heading: false,
-          horizontalRule: {},
-          codeBlock: {},
-          bulletList: {},
-          orderedList: {},
-          listItem: {},
-          blockquote: {},
-        }),
-        Link.configure({ openOnClick: false, autolink: true }),
-        TaskList,
-        TaskItem.configure({ nested: false }),
-        Placeholder.configure({
-          placeholder: 'What just happened? Tag people with @ and topics with #',
-        }),
-        TagDecorations.configure({ resolveTag }),
-      ],
-      [resolveTag],
-    ),
-    editorProps: {
-      attributes: {
-        class: 'jott-editor px-4 py-3 text-sm text-gray-900',
-      },
-      handleKeyDown(_view, event) {
-        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-          event.preventDefault();
-          submitRef.current();
-          return true;
-        }
-        return false;
-      },
+  const submit = useCallback(
+    (md: string) => {
+      const body = md.trim();
+      if (!body || create.isPending) return;
+      create.mutate({ body });
     },
-    autofocus: 'end',
-    immediatelyRender: false,
-  });
+    [create],
+  );
 
-  const isEmpty = editor?.isEmpty ?? true;
-  const canSubmit = !!editor && !isEmpty && !create.isPending;
-
-  const submit = useCallback(() => {
-    if (!editor || isEmpty || create.isPending) return;
-    const md = docToMarkdown(editor.getJSON() as never).trim();
-    if (!md) return;
-    create.mutate(
-      { body: md },
-      {
-        onSuccess: () => {
-          editor.commands.clearContent(true);
-        },
-      },
-    );
-  }, [editor, isEmpty, create]);
-
-  submitRef.current = submit;
+  const cancel = useCallback(() => {
+    editorRef.current?.clear();
+    setIsEmpty(true);
+  }, []);
 
   useImperativeHandle(ref, () => ({
-    focus: () => editor?.commands.focus('end'),
+    focus: () => editorRef.current?.focus(),
   }));
 
-  // Re-run decorations whenever tag list updates so renames / new tags reflow.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dataUpdatedAt is the trigger
-  useEffect(() => {
-    if (!editor) return;
-    editor.view.dispatch(editor.state.tr.setMeta('jott:tagsRefresh', Date.now()));
-  }, [editor, tagsQuery.dataUpdatedAt]);
+  const canSubmit = !isEmpty && !create.isPending;
+
+  function onFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (editorRef.current) submit(editorRef.current.getMarkdown());
+  }
 
   function onFormKey(e: KeyboardEvent<HTMLFormElement>) {
-    if (e.key === 'Escape' && editor) {
+    // Editor handles Esc itself; this is a fallback for clicks within the form chrome.
+    if (e.key === 'Escape') {
       e.preventDefault();
-      editor.commands.clearContent(true);
-      editor.commands.blur();
+      cancel();
     }
   }
 
@@ -133,15 +66,18 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
       className={`mb-10 overflow-hidden rounded-lg border bg-white transition-colors ${
         focused ? 'border-slate-400 ring-2 ring-slate-100' : 'border-gray-200'
       }`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
+      onSubmit={onFormSubmit}
       onKeyDown={onFormKey}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <EditorContent editor={editor} />
+      <JottEditor
+        ref={editorRef}
+        autoFocus="end"
+        onSubmit={submit}
+        onCancel={cancel}
+        onChange={(md) => setIsEmpty(md.length === 0)}
+      />
       <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-3 py-2">
         <div className="flex items-center gap-1.5 text-xs">
           <HintChip sigil="@" label="mention" mono />

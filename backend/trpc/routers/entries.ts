@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { desc, eq, inArray, isNull } from 'drizzle-orm';
+import { desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
@@ -23,6 +23,7 @@ export type EntryWithTags = Entry & { tags: EntryTagLink[] };
 const listInput = z
   .object({
     limit: z.number().int().min(1).max(200).default(50),
+    trash: z.boolean().default(false),
   })
   .optional();
 
@@ -30,16 +31,20 @@ const createInput = z.object({
   body: z.string().min(1).max(100_000),
 });
 
+const updateInput = z.object({
+  id: z.string().min(1),
+  body: z.string().min(1).max(100_000),
+});
+
+const idInput = z.object({ id: z.string().min(1) });
+
 export const entriesRouter = router({
   list: publicProcedure.input(listInput).query(({ ctx, input }): EntryWithTags[] => {
     const limit = input?.limit ?? 50;
-    const rows = ctx.db
-      .select()
-      .from(entries)
-      .where(isNull(entries.deletedAt))
-      .orderBy(desc(entries.createdAt))
-      .limit(limit)
-      .all();
+    const trash = input?.trash ?? false;
+    const filter = trash ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt);
+    const order = trash ? desc(entries.deletedAt) : desc(entries.createdAt);
+    const rows = ctx.db.select().from(entries).where(filter).orderBy(order).limit(limit).all();
     if (rows.length === 0) return [];
 
     const ids = rows.map((r) => r.id);
@@ -92,5 +97,67 @@ export const entriesRouter = router({
       reconcileEntryTags(tx, inserted.id, inserted.body, now);
       return inserted;
     });
+  }),
+
+  update: publicProcedure.input(updateInput).mutation(({ ctx, input }): Entry => {
+    const now = Date.now();
+    return ctx.db.transaction((tx) => {
+      const existing = tx.select().from(entries).where(eq(entries.id, input.id)).get();
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'entry not found' });
+      }
+      if (existing.deletedAt != null) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'cannot edit a deleted entry' });
+      }
+      const updated = tx
+        .update(entries)
+        .set({ body: input.body, updatedAt: now })
+        .where(eq(entries.id, input.id))
+        .returning()
+        .get();
+      if (!updated) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'update returned no row' });
+      }
+      reconcileEntryTags(tx, updated.id, updated.body, now);
+      return updated;
+    });
+  }),
+
+  delete: publicProcedure.input(idInput).mutation(({ ctx, input }): Entry => {
+    const now = Date.now();
+    const existing = ctx.db.select().from(entries).where(eq(entries.id, input.id)).get();
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'entry not found' });
+    }
+    if (existing.deletedAt != null) return existing;
+    const updated = ctx.db
+      .update(entries)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(entries.id, input.id))
+      .returning()
+      .get();
+    if (!updated) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'delete returned no row' });
+    }
+    return updated;
+  }),
+
+  restore: publicProcedure.input(idInput).mutation(({ ctx, input }): Entry => {
+    const now = Date.now();
+    const existing = ctx.db.select().from(entries).where(eq(entries.id, input.id)).get();
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'entry not found' });
+    }
+    if (existing.deletedAt == null) return existing;
+    const updated = ctx.db
+      .update(entries)
+      .set({ deletedAt: null, updatedAt: now })
+      .where(eq(entries.id, input.id))
+      .returning()
+      .get();
+    if (!updated) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'restore returned no row' });
+    }
+    return updated;
   }),
 });

@@ -3,6 +3,7 @@ import { httpLink } from '@trpc/client';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { ToastProvider } from './components/Toast';
 import './styles.css';
 import { trpc } from './trpc';
 
@@ -17,7 +18,9 @@ function Root() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

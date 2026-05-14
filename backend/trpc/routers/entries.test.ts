@@ -138,3 +138,116 @@ describe('entries.create', () => {
     expect(links).toHaveLength(2);
   });
 });
+
+describe('entries.update', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('updates body, bumps updatedAt, preserves createdAt', async () => {
+    const created = await s.caller.entries.create({ body: 'original' });
+    await Bun.sleep(2);
+    const updated = await s.caller.entries.update({ id: created.id, body: 'edited' });
+    expect(updated.id).toBe(created.id);
+    expect(updated.body).toBe('edited');
+    expect(updated.createdAt).toBe(created.createdAt);
+    expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
+  });
+
+  test('reconciles tags on update — adds new, removes stale', async () => {
+    const db = drizzle(s.raw, { schema });
+    const created = await s.caller.entries.create({ body: 'about #q3-plan' });
+    const before = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(before).toHaveLength(1);
+
+    await s.caller.entries.update({ id: created.id, body: 'about #q4-plan and @priya' });
+
+    const after = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(after).toHaveLength(2);
+    const names = (await s.caller.tags.list()).filter((t) => t.count > 0).map((t) => t.name);
+    expect(names.sort()).toEqual(['priya', 'q4-plan']);
+  });
+
+  test('rejects update on missing id', async () => {
+    await expect(s.caller.entries.update({ id: 'nope', body: 'x' })).rejects.toThrow();
+  });
+
+  test('rejects update on a soft-deleted entry', async () => {
+    const created = await s.caller.entries.create({ body: 'doomed' });
+    s.raw.run('UPDATE entries SET deleted_at = ? WHERE id = ?', [Date.now(), created.id]);
+    await expect(s.caller.entries.update({ id: created.id, body: 'too late' })).rejects.toThrow();
+  });
+
+  test('rejects empty / oversized body', async () => {
+    const created = await s.caller.entries.create({ body: 'hello' });
+    await expect(s.caller.entries.update({ id: created.id, body: '' })).rejects.toThrow();
+    await expect(
+      s.caller.entries.update({ id: created.id, body: 'x'.repeat(100_001) }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('entries.delete + restore', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('soft-deletes the entry', async () => {
+    const created = await s.caller.entries.create({ body: 'doomed' });
+    const deleted = await s.caller.entries.delete({ id: created.id });
+    expect(deleted.id).toBe(created.id);
+    expect(deleted.deletedAt).toBeGreaterThan(0);
+    const list = await s.caller.entries.list();
+    expect(list.find((e) => e.id === created.id)).toBeUndefined();
+  });
+
+  test('list({trash:true}) returns only deleted entries', async () => {
+    const a = await s.caller.entries.create({ body: 'kept' });
+    const b = await s.caller.entries.create({ body: 'dropped' });
+    await s.caller.entries.delete({ id: b.id });
+
+    const live = await s.caller.entries.list();
+    const trashed = await s.caller.entries.list({ trash: true });
+    expect(live.map((e) => e.id)).toEqual([a.id]);
+    expect(trashed.map((e) => e.id)).toEqual([b.id]);
+  });
+
+  test('restore puts the entry back in the active list', async () => {
+    const created = await s.caller.entries.create({ body: 'oops' });
+    await s.caller.entries.delete({ id: created.id });
+    const restored = await s.caller.entries.restore({ id: created.id });
+    expect(restored.deletedAt).toBeNull();
+    const list = await s.caller.entries.list();
+    expect(list.map((e) => e.id)).toEqual([created.id]);
+  });
+
+  test('delete is idempotent on already-deleted entry', async () => {
+    const created = await s.caller.entries.create({ body: 'x' });
+    const first = await s.caller.entries.delete({ id: created.id });
+    const second = await s.caller.entries.delete({ id: created.id });
+    expect(second.deletedAt).toBe(first.deletedAt);
+  });
+
+  test('restore is a no-op on already-active entry', async () => {
+    const created = await s.caller.entries.create({ body: 'x' });
+    const result = await s.caller.entries.restore({ id: created.id });
+    expect(result.deletedAt).toBeNull();
+  });
+
+  test('delete + restore both throw NOT_FOUND for missing id', async () => {
+    await expect(s.caller.entries.delete({ id: 'nope' })).rejects.toThrow();
+    await expect(s.caller.entries.restore({ id: 'nope' })).rejects.toThrow();
+  });
+
+  test('deleted entries keep their tag links (so restore brings them back)', async () => {
+    const db = drizzle(s.raw, { schema });
+    const created = await s.caller.entries.create({ body: '#kept-tag here' });
+    const linksBefore = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(linksBefore).toHaveLength(1);
+    await s.caller.entries.delete({ id: created.id });
+    const linksAfter = db.select().from(entryTags).where(eq(entryTags.entryId, created.id)).all();
+    expect(linksAfter).toHaveLength(1);
+  });
+});
