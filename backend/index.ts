@@ -1,6 +1,7 @@
 import { VERSION } from '@shared/version';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
 import { openDb } from './db/client';
+import { seedDemoData } from './db/seed';
 import { openBrowser } from './openBrowser';
 import { createApp, PortInUseError, serveApp } from './server';
 
@@ -18,6 +19,18 @@ function main(): void {
   }
 
   const dbHandle = openDb(opts.dbPath);
+
+  if (opts.seedDb) {
+    const existing = dbHandle.raw.query('SELECT COUNT(*) as n FROM entries').get() as {
+      n: number;
+    };
+    if (existing.n === 0) {
+      const seeded = seedDemoData(dbHandle.db);
+      process.stdout.write(`seeded ${seeded} demo entries\n`);
+    } else {
+      process.stdout.write(`db has ${existing.n} entries — skipping seed\n`);
+    }
+  }
 
   const app = createApp({ db: dbHandle.db });
 

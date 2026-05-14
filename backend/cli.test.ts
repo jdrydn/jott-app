@@ -7,6 +7,11 @@ describe('parseCliArgs', () => {
     expect(opts.port).toBe(DEFAULT_PORT);
     expect(opts.open).toBe(true);
     expect(opts.dbPath).toMatch(/jottapp\.db$/);
+    expect(opts.seedDb).toBe(false);
+  });
+
+  test('--seed-db enables demo seeding', () => {
+    expect(parseCliArgs(['--seed-db'], {}).seedDb).toBe(true);
   });
 
   test('--port overrides default', () => {

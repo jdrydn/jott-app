@@ -1,16 +1,59 @@
 import type { ReactNode } from 'react';
+import {
+  derivePeople,
+  deriveTopics,
+  formatRelative,
+  type Mention,
+  type Topic,
+} from '../lib/derive';
+import { trpc } from '../trpc';
 
 export function Sidebar() {
+  const list = trpc.entries.list.useQuery();
+  const entries = list.data ?? [];
+  const people = derivePeople(entries);
+  const topics = deriveTopics(entries);
+
   return (
     <div className="space-y-7">
-      <Section title="Recent People" count={0}>
-        <p className="text-xs text-gray-400">No mentions yet.</p>
+      <Section title="Recent People" count={people.length}>
+        {people.length === 0 ? <Empty>No mentions yet.</Empty> : <PeopleList people={people} />}
       </Section>
-      <Section title="Topics" count={0}>
-        <p className="text-xs text-gray-400">No topics yet.</p>
+      <Section title="Topics" count={topics.length}>
+        {topics.length === 0 ? <Empty>No topics yet.</Empty> : <TopicList topics={topics} />}
       </Section>
       <TipsBlock />
     </div>
+  );
+}
+
+function PeopleList({ people }: { people: Mention[] }) {
+  return (
+    <ul className="space-y-2.5">
+      {people.map((p) => (
+        <li key={p.name} className="flex items-center gap-3">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 font-mono text-[10px] font-semibold uppercase text-blue-700">
+            {p.initials}
+          </div>
+          <span className="flex-1 truncate text-sm capitalize text-gray-800">{p.name}</span>
+          <span className="text-xs text-gray-400">{formatRelative(p.lastSeen)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TopicList({ topics }: { topics: Topic[] }) {
+  return (
+    <ul className="space-y-1.5">
+      {topics.map((t) => (
+        <li key={t.name} className="flex items-center gap-2">
+          <span className="font-mono text-teal-500">#</span>
+          <span className="flex-1 truncate text-sm text-gray-800">{t.name}</span>
+          <span className="text-xs text-gray-400">{t.count}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -36,6 +79,10 @@ function Section({
       {children}
     </section>
   );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-gray-400">{children}</p>;
 }
 
 function TipsBlock() {

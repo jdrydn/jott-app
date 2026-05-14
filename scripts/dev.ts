@@ -14,6 +14,7 @@ function launch(cmd: string[]): Subprocess {
   return p;
 }
 
+const forwarded = process.argv.slice(2);
 const backend = launch([
   'bun',
   '--watch',
@@ -23,6 +24,7 @@ const backend = launch([
   '--db',
   DEV_DB,
   '--no-open',
+  ...forwarded,
 ]);
 const frontend = launch(['bun', '--bun', 'vite']);
 

@@ -10,6 +10,7 @@
   "packageManager": "bun@1.3.13",
   "scripts": {
     "dev": "bun scripts/dev.ts",
+    "dev:seed": "bun scripts/dev.ts --seed-db",
     "dev:backend": "bun --watch backend/index.ts",
     "dev:frontend": "bun --bun vite",
     "build": "bun scripts/build.ts",
