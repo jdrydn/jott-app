@@ -60,7 +60,8 @@ jottapp --help
 - **No auth** — pure trust-the-loopback. Personal-use single-device app.
 - Fixed default port `4853`. If taken, **fail to start** with a clear message ("port 4853 in use — is `jottapp` already running?"). No fallback.
 - **In production:** Hono serves the pre-built React app as static assets, embedded into the compiled binary via `bun build --compile`.
-- **In development:** Hono mounts the Vite dev server as middleware (`createServer({ server: { middlewareMode: true } })`) so the API and frontend share one origin, one port, and HMR just works.
+- **In development:** two processes — Vite serves the frontend on `127.0.0.1:4853` (user-facing URL, matches prod), Hono runs on `127.0.0.1:4854`, Vite proxies `/api/*` to Hono. Single user-facing URL, HMR works, origins effectively share via the proxy. Orchestrated by `scripts/dev.ts` (one `bun run dev` command).
+  - Why not Hono-mounts-Vite via middleware? Vite's dev-server SSR loader runs the Hono entry through Node's ESM loader, which can't resolve `bun:` scheme imports (`bun:sqlite`). The inverse direction (`@hono/vite-dev-server`) has the same problem.
 - Lifecycle: foreground process. `Ctrl+C` to stop. No daemon mode.
 - Single-instance is implicitly handled by the port lock — a second `jottapp` will fail to bind.
 
@@ -182,7 +183,7 @@ Encryption is deferred — relying on OS disk encryption (FileVault / BitLocker 
 
 ## 6. UI (web app, bundled in binary)
 
-- **Framework:** React 18 + TypeScript + Vite (dev), bundled into the binary for prod.
+- **Framework:** React 19 + TypeScript + Vite (dev), bundled into the binary for prod.
 - **Styling:** Tailwind CSS.
 - **Editor:** TipTap (ProseMirror), restricted to allowed marks/blocks:
   - bold, italic, strikethrough
@@ -233,17 +234,17 @@ Press Ctrl+C to stop.
 
 Gated — each leaves a working, runnable binary.
 
-### M0 — Hello server (weekend prototype)
+### M0 — Hello server (weekend prototype) — ✓ shipped 2026-05-13
 - Bun project scaffold, TS strict
 - Drizzle + `bun:sqlite` wired up, first migration (`entries` table)
-- Hono on `127.0.0.1:4853`, fails if port taken
+- Hono on `127.0.0.1:4853`, fails if port taken (`:4854` in dev to leave `:4853` for Vite)
 - tRPC mounted at `/api/trpc` with `entries.list` + `entries.create` procedures
-- Hono mounts Vite dev server in dev mode (one origin, HMR works)
-- Minimal React + Tailwind app: list of entries + plain `<textarea>` to add, talking to tRPC via `@trpc/react-query`
+- Dev: Vite on `:4853` + Hono on `:4854` via `scripts/dev.ts`; Vite proxies `/api/*` to Hono
+- Minimal React 19 + Tailwind v4 app: list of entries + plain `<textarea>` to add, talking to tRPC via `@trpc/react-query`
 - `jottapp` boots server + auto-opens browser
 - `bun build --compile` produces a single binary with UI assets embedded
-- CI: lint, typecheck, test, build matrix
-- **Goal:** prove single-binary + server + DB + UI + typed-API pipeline end-to-end.
+- CI: GitHub Actions — lint + format-check + typecheck + test, plus 5-target cross-compile matrix (macOS arm64/x64, Linux x64/arm64, Windows x64) with artifact upload
+- **Goal:** ✓ proven — single-binary + server + DB + UI + typed-API pipeline end-to-end.
 
 ### M1 — Rich editor + tags
 - TipTap with the allowed mark set (§6)
@@ -313,7 +314,7 @@ Gated — each leaves a working, runnable binary.
 - **API:** tRPC + `@trpc/server`'s fetch adapter (Hono speaks fetch natively)
 - **DB:** `bun:sqlite`
 - **ORM:** Drizzle (`drizzle-orm/bun-sqlite` + `drizzle-kit` for migrations)
-- **UI framework:** React 18, Vite, Tailwind CSS
+- **UI framework:** React 19, Vite, Tailwind CSS v4
 - **UI data fetching:** `@trpc/react-query` (React Query under the hood)
 - **Editor:** TipTap
 - **Markdown:** TipTap's built-in serializer + `marked` for any one-shot rendering needs
@@ -364,9 +365,11 @@ Single package. `backend/` and `frontend/` at the root, no `packages/` wrapper. 
 │   └── styles/
 ├── shared/
 │   └── tags.ts                 # hashtag regex — used by editor + backend
+├── scripts/
+│   ├── dev.ts                  # spawns Hono (port 4854) + Vite (port 4853) in parallel
+│   └── build.ts                # vite build → embed dist/ → bun build --compile
 ├── drizzle.config.ts
-├── vite.config.ts
-├── tailwind.config.ts
+├── vite.config.ts              # (Tailwind v4 needs no separate config file)
 ├── tsconfig.json
 ├── package.json
 └── PLAN.md
@@ -427,3 +430,9 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-13 | Topic + User unified into single Tag model with `type` discriminator      | No separate Person model needed; sigil distinguishes type at parse-time     |
 | 2026-05-13 | Images = M6 (between Durability and Release prep); other milestones pushed | Confirmed future direction worth doing pre-1.0; non-image attachments deferred |
 | 2026-05-13 | Markdown export: emit literal body text (do not resolve tag renames)      | Body is source of truth; rename is a display-time concern only             |
+| 2026-05-13 | Dev shape: two processes + Vite proxy (not Hono-mounts-Vite-middleware)   | Vite SSR loader can't resolve `bun:sqlite`; @hono/vite-dev-server fails for the same reason. Proxy is the simplest pattern that preserves single user-facing URL + HMR |
+| 2026-05-13 | Dev port split: frontend `:4853` (user-facing), backend `:4854`           | Frontend owns the prod URL in dev too; backend gets an adjacent port; prod binary unchanged on `:4853` |
+| 2026-05-13 | React 19 (not React 18 from earlier plan)                                 | Current stable; tRPC v11 + React Query 5 fully support it; no reason to pin to 18 |
+| 2026-05-13 | Tailwind v4 with `@tailwindcss/vite`; no `tailwind.config.ts`             | v4 moves config into CSS via `@theme {}`; no JS config file needed         |
+| 2026-05-13 | Static assets embedded via `with { type: 'file' }` import attribute       | Bun's `bun build --compile` embeds these; the runtime path resolves via `$bunfs` automatically |
+| 2026-05-13 | Asset manifest generated at build time + stub committed for dev imports   | `backend/staticAssets.generated.ts` is committed as an empty Map; build script regenerates it, then restores the stub in `finally` so git stays clean |
