@@ -251,3 +251,75 @@ describe('entries.delete + restore', () => {
     expect(linksAfter).toHaveLength(1);
   });
 });
+
+describe('entries.search', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('returns body matches with attached tag links', async () => {
+    await s.caller.entries.create({ body: 'shipping the launch with @priya' });
+    await s.caller.entries.create({ body: 'rolling back the migration' });
+
+    const hits = await s.caller.entries.search({ q: 'launch' });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('launch');
+    expect(hits[0]?.tags.map((t) => t.tag.name)).toContain('priya');
+  });
+
+  test('prefix-matches the last alnum token', async () => {
+    await s.caller.entries.create({ body: 'production rollout incoming' });
+    await s.caller.entries.create({ body: 'staging tests passing' });
+
+    const hits = await s.caller.entries.search({ q: 'roll' });
+    expect(hits.map((h) => h.body)).toEqual(['production rollout incoming']);
+  });
+
+  test('hyphenated tag tokens (e.g. q3-plan) match', async () => {
+    await s.caller.entries.create({ body: 'sync about #q3-plan with @priya' });
+    await s.caller.entries.create({ body: 'unrelated note' });
+
+    const hits = await s.caller.entries.search({ q: 'q3-plan' });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('q3-plan');
+  });
+
+  test('strips leading sigils so #q3 still matches', async () => {
+    await s.caller.entries.create({ body: 'about #q3-plan' });
+    const hits = await s.caller.entries.search({ q: '#q3' });
+    expect(hits).toHaveLength(1);
+  });
+
+  test('excludes soft-deleted entries', async () => {
+    const a = await s.caller.entries.create({ body: 'launch announcement' });
+    await s.caller.entries.delete({ id: a.id });
+
+    const hits = await s.caller.entries.search({ q: 'launch' });
+    expect(hits).toHaveLength(0);
+  });
+
+  test('reflects edits after entries.update (FTS triggers fire)', async () => {
+    const created = await s.caller.entries.create({ body: 'first body about apples' });
+    let hits = await s.caller.entries.search({ q: 'apples' });
+    expect(hits).toHaveLength(1);
+
+    await s.caller.entries.update({ id: created.id, body: 'rewritten about oranges' });
+
+    hits = await s.caller.entries.search({ q: 'apples' });
+    expect(hits).toHaveLength(0);
+    hits = await s.caller.entries.search({ q: 'oranges' });
+    expect(hits).toHaveLength(1);
+  });
+
+  test('rejects empty / oversized q', async () => {
+    await expect(s.caller.entries.search({ q: '' })).rejects.toThrow();
+    await expect(s.caller.entries.search({ q: 'x'.repeat(201) })).rejects.toThrow();
+  });
+
+  test('returns empty for query with no extractable tokens', async () => {
+    await s.caller.entries.create({ body: 'something' });
+    const hits = await s.caller.entries.search({ q: '!!!' });
+    expect(hits).toEqual([]);
+  });
+});

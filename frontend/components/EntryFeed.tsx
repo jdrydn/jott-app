@@ -6,17 +6,49 @@ import { trpc } from '../trpc';
 import { JottEditor, type JottEditorHandle } from './JottEditor';
 import { useToast } from './Toast';
 
-export function EntryFeed({ trash = false }: { trash?: boolean }) {
-  const list = trpc.entries.list.useQuery({ trash });
+export function EntryFeed({
+  trash = false,
+  searchQuery = '',
+}: {
+  trash?: boolean;
+  searchQuery?: string;
+}) {
+  const debouncedQuery = useDebouncedValue(searchQuery.trim(), 200);
+  const isSearching = debouncedQuery.length > 0 && !trash;
 
-  if (list.isLoading) {
+  const list = trpc.entries.list.useQuery({ trash }, { enabled: !isSearching });
+  const search = trpc.entries.search.useQuery({ q: debouncedQuery }, { enabled: isSearching });
+
+  const active = isSearching ? search : list;
+
+  if (active.isLoading) {
     return <p className="text-sm text-gray-500">Loading…</p>;
   }
-  if (list.error) {
-    return <p className="text-sm text-red-500">Error: {list.error.message}</p>;
+  if (active.error) {
+    return <p className="text-sm text-red-500">Error: {active.error.message}</p>;
   }
 
-  const groups = groupByDay(list.data ?? []);
+  const data = active.data ?? [];
+
+  if (isSearching) {
+    if (data.length === 0) {
+      return <p className="text-sm italic text-gray-400">No entries match "{debouncedQuery}".</p>;
+    }
+    return (
+      <div className="space-y-5">
+        <p className="text-xs uppercase tracking-wider text-gray-500">
+          {data.length} {data.length === 1 ? 'result' : 'results'} for "{debouncedQuery}"
+        </p>
+        <ul className="space-y-5">
+          {data.map((entry) => (
+            <EntryRow key={entry.id} entry={entry} trash={false} />
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const groups = groupByDay(data);
 
   if (trash && groups.every((g) => g.entries.length === 0)) {
     return <p className="text-sm italic text-gray-400">Trash is empty.</p>;
@@ -29,6 +61,15 @@ export function EntryFeed({ trash = false }: { trash?: boolean }) {
       ))}
     </div>
   );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function DaySection({ group, trash }: { group: DayGroup; trash: boolean }) {

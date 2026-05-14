@@ -163,4 +163,63 @@ describe('migrate', () => {
     const after2 = db.query('SELECT COUNT(*) AS n FROM entry_tags').get() as { n: number };
     expect(after2.n).toBe(0);
   });
+
+  test('creates entries_fts virtual table', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const row = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='entries_fts'")
+      .get();
+    expect(row).toEqual({ name: 'entries_fts' });
+  });
+
+  test('FTS triggers fire on insert/update/delete', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    db.exec(
+      `INSERT INTO entries (id, created_at, updated_at, body) VALUES ('e1', 1, 1, 'shipping the launch')`,
+    );
+    let rows = db
+      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'launch'")
+      .all() as Array<{ body: string }>;
+    expect(rows).toHaveLength(1);
+
+    db.exec(`UPDATE entries SET body = 'rolling back' WHERE id = 'e1'`);
+    rows = db
+      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'launch'")
+      .all() as Array<{ body: string }>;
+    expect(rows).toHaveLength(0);
+    rows = db
+      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'rolling'")
+      .all() as Array<{ body: string }>;
+    expect(rows).toHaveLength(1);
+
+    db.exec(`DELETE FROM entries WHERE id = 'e1'`);
+    rows = db
+      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'rolling'")
+      .all() as Array<{ body: string }>;
+    expect(rows).toHaveLength(0);
+  });
+
+  test('FTS index is backfilled from existing rows', () => {
+    const db = new Database(':memory:');
+    // Apply only the first two migrations manually so we can seed before FTS is added.
+    db.exec(migrations[0] as string);
+    db.exec('PRAGMA user_version = 1');
+    db.exec(migrations[1] as string);
+    db.exec('PRAGMA user_version = 2');
+    db.exec(
+      `INSERT INTO entries (id, created_at, updated_at, body) VALUES ('legacy', 1, 1, 'preexisting note about migrations')`,
+    );
+
+    // Now apply the FTS migration.
+    migrate(db);
+
+    const rows = db
+      .query(
+        "SELECT entries.id FROM entries_fts JOIN entries ON entries.rowid = entries_fts.rowid WHERE entries_fts MATCH 'preexisting'",
+      )
+      .all() as Array<{ id: string }>;
+    expect(rows).toEqual([{ id: 'legacy' }]);
+  });
 });

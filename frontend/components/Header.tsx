@@ -5,10 +5,14 @@ export function Header({
   searchRef,
   trash,
   onToggleTrash,
+  searchQuery,
+  onSearchQueryChange,
 }: {
   searchRef?: Ref<HTMLInputElement>;
   trash: boolean;
   onToggleTrash: () => void;
+  searchQuery: string;
+  onSearchQueryChange: (q: string) => void;
 }) {
   const today = formatHeaderDate(new Date());
   return (
@@ -41,12 +45,26 @@ export function Header({
           <input
             ref={searchRef}
             type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
             placeholder="Search entries, people, topics…"
             className="flex-1 bg-transparent text-sm placeholder-gray-400 focus:outline-none"
           />
-          <kbd className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-xs text-gray-500">
-            ⌘K
-          </kbd>
+          {searchQuery.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => onSearchQueryChange('')}
+              className="text-xs text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              ×
+            </button>
+          ) : (
+            <kbd className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-xs text-gray-500">
+              ⌘K
+            </kbd>
+          )}
         </div>
       </div>
     </header>

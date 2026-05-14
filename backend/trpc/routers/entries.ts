@@ -1,8 +1,9 @@
 import { TRPCError } from '@trpc/server';
-import { desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
+import type { Db } from '../../db/client';
 import { type Entry, entries, entryTags, tags } from '../../db/schema';
 import { reconcileEntryTags } from '../../tags/reconcile';
 import { publicProcedure, router } from '../trpc';
@@ -38,6 +39,61 @@ const updateInput = z.object({
 
 const idInput = z.object({ id: z.string().min(1) });
 
+const searchInput = z.object({
+  q: z.string().min(1).max(200),
+  limit: z.number().int().min(1).max(200).default(50),
+});
+
+function buildMatchQuery(q: string): string | null {
+  const cleaned = q.replace(/[^\w\s-]/g, ' ').trim();
+  if (!cleaned) return null;
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return null;
+  return tokens
+    .map((tok, i) => {
+      const isLast = i === tokens.length - 1;
+      const isSimple = /^[A-Za-z0-9_]+$/.test(tok);
+      if (isLast && isSimple) return `${tok}*`;
+      return `"${tok}"`;
+    })
+    .join(' ');
+}
+
+function attachTags(db: Db, rows: Entry[]): EntryWithTags[] {
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  const links = db
+    .select({
+      entryId: entryTags.entryId,
+      nameWhenLinked: entryTags.nameWhenLinked,
+      tagId: tags.id,
+      type: tags.type,
+      name: tags.name,
+      initials: tags.initials,
+      color: tags.color,
+    })
+    .from(entryTags)
+    .innerJoin(tags, eq(tags.id, entryTags.tagId))
+    .where(inArray(entryTags.entryId, ids))
+    .all();
+  const byEntry = new Map<string, EntryTagLink[]>();
+  for (const l of links) {
+    const arr = byEntry.get(l.entryId) ?? [];
+    arr.push({
+      nameWhenLinked: l.nameWhenLinked,
+      tag: {
+        id: l.tagId,
+        type: l.type,
+        name: l.name,
+        initials: l.initials,
+        color: l.color,
+      },
+    });
+    byEntry.set(l.entryId, arr);
+  }
+  return rows.map((r) => ({ ...r, tags: byEntry.get(r.id) ?? [] }));
+}
+
 export const entriesRouter = router({
   list: publicProcedure.input(listInput).query(({ ctx, input }): EntryWithTags[] => {
     const limit = input?.limit ?? 50;
@@ -45,40 +101,32 @@ export const entriesRouter = router({
     const filter = trash ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt);
     const order = trash ? desc(entries.deletedAt) : desc(entries.createdAt);
     const rows = ctx.db.select().from(entries).where(filter).orderBy(order).limit(limit).all();
-    if (rows.length === 0) return [];
+    return attachTags(ctx.db, rows);
+  }),
 
-    const ids = rows.map((r) => r.id);
-    const links = ctx.db
-      .select({
-        entryId: entryTags.entryId,
-        nameWhenLinked: entryTags.nameWhenLinked,
-        tagId: tags.id,
-        type: tags.type,
-        name: tags.name,
-        initials: tags.initials,
-        color: tags.color,
-      })
-      .from(entryTags)
-      .innerJoin(tags, eq(tags.id, entryTags.tagId))
-      .where(inArray(entryTags.entryId, ids))
+  search: publicProcedure.input(searchInput).query(({ ctx, input }): EntryWithTags[] => {
+    const match = buildMatchQuery(input.q);
+    if (!match) return [];
+
+    const matches = ctx.db.all<{ id: string }>(sql`
+      SELECT entries.id AS id
+      FROM entries_fts
+      JOIN entries ON entries.rowid = entries_fts.rowid
+      WHERE entries_fts MATCH ${match}
+        AND entries.deleted_at IS NULL
+      ORDER BY bm25(entries_fts), entries.created_at DESC
+      LIMIT ${input.limit}
+    `);
+    if (matches.length === 0) return [];
+
+    const order = new Map(matches.map((m, i) => [m.id, i]));
+    const rows = ctx.db
+      .select()
+      .from(entries)
+      .where(inArray(entries.id, [...order.keys()]))
       .all();
-
-    const byEntry = new Map<string, EntryTagLink[]>();
-    for (const l of links) {
-      const arr = byEntry.get(l.entryId) ?? [];
-      arr.push({
-        nameWhenLinked: l.nameWhenLinked,
-        tag: {
-          id: l.tagId,
-          type: l.type,
-          name: l.name,
-          initials: l.initials,
-          color: l.color,
-        },
-      });
-      byEntry.set(l.entryId, arr);
-    }
-    return rows.map((r) => ({ ...r, tags: byEntry.get(r.id) ?? [] }));
+    rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    return attachTags(ctx.db, rows);
   }),
 
   create: publicProcedure.input(createInput).mutation(({ ctx, input }): Entry => {
