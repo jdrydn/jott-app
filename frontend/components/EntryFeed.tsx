@@ -1,4 +1,4 @@
-import type { Entry } from '@backend/db/schema';
+import type { EntryWithTags } from '@backend/trpc/routers/entries';
 import { useMemo, useState } from 'react';
 import { type DayGroup, formatTime, groupByDay } from '../lib/format';
 import { trpc } from '../trpc';
@@ -54,7 +54,7 @@ function DaySection({ group }: { group: DayGroup }) {
   );
 }
 
-function EntryRow({ entry }: { entry: Entry }) {
+function EntryRow({ entry }: { entry: EntryWithTags }) {
   const [expanded, setExpanded] = useState(false);
   const paragraphs = useMemo(
     () =>
@@ -76,7 +76,7 @@ function EntryRow({ entry }: { entry: Entry }) {
         {visible.map((para, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: paragraphs are derived from a stable body
           <p key={i} className="whitespace-pre-wrap">
-            <BodyText>{para}</BodyText>
+            <BodyText links={entry.tags}>{para}</BodyText>
           </p>
         ))}
         {!expanded && hiddenCount > 0 ? (

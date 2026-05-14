@@ -10,6 +10,7 @@ export function Composer({ textareaRef }: { textareaRef?: Ref<HTMLTextAreaElemen
     onSuccess: () => {
       setBody('');
       utils.entries.list.invalidate();
+      utils.tags.list.invalidate();
     },
   });
 
