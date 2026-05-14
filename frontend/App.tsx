@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { Composer } from './components/Composer';
+import { Composer, type ComposerHandle } from './components/Composer';
 import { EntryFeed } from './components/EntryFeed';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 
 export function App() {
   const searchRef = useRef<HTMLInputElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ComposerHandle>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -36,7 +36,7 @@ export function App() {
         <Header searchRef={searchRef} />
         <div className="flex gap-12 border-t border-gray-200 py-8">
           <main className="min-w-0 flex-1">
-            <Composer textareaRef={composerRef} />
+            <Composer ref={composerRef} />
             <EntryFeed />
           </main>
           <aside className="w-64 shrink-0">
