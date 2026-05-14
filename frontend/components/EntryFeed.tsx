@@ -3,20 +3,33 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { type DayGroup, formatTime, groupByDay } from '../lib/format';
 import { MarkdownView } from '../lib/markdown/MarkdownView';
 import { trpc } from '../trpc';
+import type { Filters } from './FilterBar';
 import { JottEditor, type JottEditorHandle } from './JottEditor';
 import { useToast } from './Toast';
 
 export function EntryFeed({
   trash = false,
   searchQuery = '',
+  filters = {},
+  onSetTagFilter,
 }: {
   trash?: boolean;
   searchQuery?: string;
+  filters?: Filters;
+  onSetTagFilter?: (tagId: string) => void;
 }) {
   const debouncedQuery = useDebouncedValue(searchQuery.trim(), 200);
   const isSearching = debouncedQuery.length > 0 && !trash;
 
-  const list = trpc.entries.list.useQuery({ trash }, { enabled: !isSearching });
+  const list = trpc.entries.list.useQuery(
+    {
+      trash,
+      tagId: filters.tagId,
+      from: filters.from,
+      to: filters.to,
+    },
+    { enabled: !isSearching },
+  );
   const search = trpc.entries.search.useQuery({ q: debouncedQuery }, { enabled: isSearching });
 
   const active = isSearching ? search : list;
@@ -41,7 +54,7 @@ export function EntryFeed({
         </p>
         <ul className="space-y-5">
           {data.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} trash={false} />
+            <EntryRow key={entry.id} entry={entry} trash={false} onSetTagFilter={onSetTagFilter} />
           ))}
         </ul>
       </div>
@@ -54,10 +67,20 @@ export function EntryFeed({
     return <p className="text-sm italic text-gray-400">Trash is empty.</p>;
   }
 
+  const hasFilter = filters.tagId != null || filters.from != null || filters.to != null;
+  if (!trash && hasFilter && data.length === 0) {
+    return <p className="text-sm italic text-gray-400">No entries match the active filter.</p>;
+  }
+
   return (
     <div className="space-y-10">
       {groups.map((group) => (
-        <DaySection key={group.dateKey} group={group} trash={trash} />
+        <DaySection
+          key={group.dateKey}
+          group={group}
+          trash={trash}
+          onSetTagFilter={onSetTagFilter}
+        />
       ))}
     </div>
   );
@@ -72,7 +95,15 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function DaySection({ group, trash }: { group: DayGroup; trash: boolean }) {
+function DaySection({
+  group,
+  trash,
+  onSetTagFilter,
+}: {
+  group: DayGroup;
+  trash: boolean;
+  onSetTagFilter?: (tagId: string) => void;
+}) {
   return (
     <section>
       <header className="mb-4 flex items-baseline justify-between border-b border-gray-200 pb-2">
@@ -93,7 +124,7 @@ function DaySection({ group, trash }: { group: DayGroup; trash: boolean }) {
       ) : (
         <ul className="space-y-5">
           {group.entries.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} trash={trash} />
+            <EntryRow key={entry.id} entry={entry} trash={trash} onSetTagFilter={onSetTagFilter} />
           ))}
         </ul>
       )}
@@ -101,7 +132,15 @@ function DaySection({ group, trash }: { group: DayGroup; trash: boolean }) {
   );
 }
 
-function EntryRow({ entry, trash }: { entry: EntryWithTags; trash: boolean }) {
+function EntryRow({
+  entry,
+  trash,
+  onSetTagFilter,
+}: {
+  entry: EntryWithTags;
+  trash: boolean;
+  onSetTagFilter?: (tagId: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const utils = trpc.useUtils();
   const toast = useToast();
@@ -133,7 +172,7 @@ function EntryRow({ entry, trash }: { entry: EntryWithTags; trash: boolean }) {
         {editing ? (
           <EntryEditor entry={entry} onDone={() => setEditing(false)} />
         ) : (
-          <MarkdownView body={entry.body} links={entry.tags} />
+          <MarkdownView body={entry.body} links={entry.tags} onTagClick={onSetTagFilter} />
         )}
       </div>
       <div className="flex w-16 shrink-0 items-start justify-end gap-1 self-start opacity-0 transition-opacity group-hover:opacity-100">

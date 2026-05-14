@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
@@ -25,6 +25,9 @@ const listInput = z
   .object({
     limit: z.number().int().min(1).max(200).default(50),
     trash: z.boolean().default(false),
+    tagId: z.string().min(1).optional(),
+    from: z.number().int().nonnegative().optional(),
+    to: z.number().int().nonnegative().optional(),
   })
   .optional();
 
@@ -98,9 +101,29 @@ export const entriesRouter = router({
   list: publicProcedure.input(listInput).query(({ ctx, input }): EntryWithTags[] => {
     const limit = input?.limit ?? 50;
     const trash = input?.trash ?? false;
-    const filter = trash ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt);
     const order = trash ? desc(entries.deletedAt) : desc(entries.createdAt);
-    const rows = ctx.db.select().from(entries).where(filter).orderBy(order).limit(limit).all();
+
+    const where = [trash ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt)];
+    if (input?.from != null) where.push(gte(entries.createdAt, input.from));
+    if (input?.to != null) where.push(lte(entries.createdAt, input.to));
+    if (input?.tagId) {
+      const linked = ctx.db
+        .select({ entryId: entryTags.entryId })
+        .from(entryTags)
+        .where(eq(entryTags.tagId, input.tagId))
+        .all()
+        .map((r) => r.entryId);
+      if (linked.length === 0) return [];
+      where.push(inArray(entries.id, linked));
+    }
+
+    const rows = ctx.db
+      .select()
+      .from(entries)
+      .where(and(...where))
+      .orderBy(order)
+      .limit(limit)
+      .all();
     return attachTags(ctx.db, rows);
   }),
 

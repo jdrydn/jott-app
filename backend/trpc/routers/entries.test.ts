@@ -323,3 +323,70 @@ describe('entries.search', () => {
     expect(hits).toEqual([]);
   });
 });
+
+describe('entries.list filters', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  async function createAt(body: string, createdAt: number): Promise<{ id: string }> {
+    const created = await s.caller.entries.create({ body });
+    s.raw.run('UPDATE entries SET created_at = ? WHERE id = ?', [createdAt, created.id]);
+    return { id: created.id };
+  }
+
+  test('tagId filter returns only entries linked to that tag', async () => {
+    await s.caller.entries.create({ body: 'about #work today' });
+    await s.caller.entries.create({ body: 'about #play tonight' });
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const hits = await s.caller.entries.list({ tagId: work.id });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.body).toContain('#work');
+  });
+
+  test('tagId returns empty when no entries link to the tag', async () => {
+    const hits = await s.caller.entries.list({ tagId: 'nope' });
+    expect(hits).toEqual([]);
+  });
+
+  test('from + to bound the createdAt window inclusively', async () => {
+    await createAt('first', 1_000);
+    await createAt('second', 2_000);
+    await createAt('third', 3_000);
+
+    const middle = await s.caller.entries.list({ from: 2_000, to: 2_000 });
+    expect(middle.map((e) => e.body)).toEqual(['second']);
+
+    const lowerOpen = await s.caller.entries.list({ to: 2_000 });
+    expect(lowerOpen.map((e) => e.body).sort()).toEqual(['first', 'second']);
+
+    const upperOpen = await s.caller.entries.list({ from: 2_000 });
+    expect(upperOpen.map((e) => e.body).sort()).toEqual(['second', 'third']);
+  });
+
+  test('combines tagId + date range as AND', async () => {
+    const a = await createAt('about #work yesterday', 1_000);
+    await createAt('about #work today', 3_000);
+    await createAt('about #play yesterday', 1_000);
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const hits = await s.caller.entries.list({ tagId: work.id, from: 500, to: 1_500 });
+    expect(hits.map((e) => e.id)).toEqual([a.id]);
+  });
+
+  test('filters do not bleed into trash mode', async () => {
+    const a = await s.caller.entries.create({ body: 'about #work' });
+    await s.caller.entries.delete({ id: a.id });
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const live = await s.caller.entries.list({ tagId: work.id });
+    expect(live).toEqual([]);
+    const trashed = await s.caller.entries.list({ trash: true, tagId: work.id });
+    expect(trashed.map((e) => e.id)).toEqual([a.id]);
+  });
+});

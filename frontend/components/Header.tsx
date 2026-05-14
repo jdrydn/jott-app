@@ -3,14 +3,10 @@ import { formatHeaderDate } from '../lib/format';
 
 export function Header({
   searchRef,
-  trash,
-  onToggleTrash,
   searchQuery,
   onSearchQueryChange,
 }: {
   searchRef?: Ref<HTMLInputElement>;
-  trash: boolean;
-  onToggleTrash: () => void;
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
 }) {
@@ -28,18 +24,6 @@ export function Header({
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggleTrash}
-          className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-            trash
-              ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-          }`}
-          title={trash ? 'Show active entries' : 'Show deleted entries'}
-        >
-          {trash ? 'Showing trash' : 'Show deleted'}
-        </button>
         <div className="flex w-80 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
           <SearchIcon />
           <input
