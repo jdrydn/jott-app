@@ -1,5 +1,5 @@
 import type { EntryWithTags } from '@backend/trpc/routers/entries';
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { type DayGroup, formatTime, groupByDay } from '../lib/format';
 import { MarkdownView } from '../lib/markdown/MarkdownView';
 import { trpc } from '../trpc';
@@ -150,51 +150,81 @@ function RowAction({
 
 function EntryEditor({ entry, onDone }: { entry: EntryWithTags; onDone: () => void }) {
   const editorRef = useRef<JottEditorHandle>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
   const update = trpc.entries.update.useMutation({
     onSuccess: () => {
       utils.entries.list.invalidate();
       utils.tags.list.invalidate();
-      onDone();
+      setSavedAt(Date.now());
     },
   });
 
-  const save = useCallback(
+  const autoSave = useCallback(
     (md: string) => {
       const body = md.trim();
       if (!body || update.isPending) return;
-      if (body === entry.body) {
-        onDone();
-        return;
-      }
       update.mutate({ id: entry.id, body });
     },
-    [entry.id, entry.body, update, onDone],
+    [entry.id, update],
   );
 
-  const cancel = useCallback(() => onDone(), [onDone]);
+  // Click outside the editor commits any pending save and exits.
+  useEffect(() => {
+    function onPointer(e: PointerEvent) {
+      const node = containerRef.current;
+      if (!node) return;
+      if (e.target instanceof Node && node.contains(e.target)) return;
+      editorRef.current?.flush();
+      onDone();
+    }
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [onDone]);
+
+  const exit = useCallback(() => {
+    editorRef.current?.flush();
+    onDone();
+  }, [onDone]);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-300 ring-2 ring-slate-100">
+    <div
+      ref={containerRef}
+      className="overflow-hidden rounded-lg border border-slate-300 ring-2 ring-slate-100"
+    >
       <JottEditor
         ref={editorRef}
         initialBody={entry.body}
         autoFocus="end"
-        onSubmit={save}
-        onCancel={cancel}
+        onSubmit={exit}
+        onCancel={exit}
+        onAutoSave={autoSave}
       />
       <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-3 py-1.5 text-xs">
         <span className="text-gray-500">
-          <kbd className="font-mono">⌘⏎</kbd> save · <kbd className="font-mono">esc</kbd> cancel
+          <kbd className="font-mono">esc</kbd> close · changes save automatically
         </span>
-        {update.error ? (
-          <span className="text-red-600">{update.error.message}</span>
-        ) : update.isPending ? (
-          <span className="text-gray-400">Saving…</span>
-        ) : null}
+        <SaveStatus pending={update.isPending} error={update.error?.message} savedAt={savedAt} />
       </div>
     </div>
   );
+}
+
+function SaveStatus({
+  pending,
+  error,
+  savedAt,
+}: {
+  pending: boolean;
+  error?: string;
+  savedAt: number | null;
+}) {
+  if (error) return <span className="text-red-600">{error}</span>;
+  if (pending) return <span className="text-gray-400">Saving…</span>;
+  if (savedAt != null) return <span className="text-emerald-600">Saved</span>;
+  return null;
 }
 
 function PencilIcon() {

@@ -17,6 +17,7 @@ export type JottEditorHandle = {
   getMarkdown: () => string;
   isEmpty: () => boolean;
   clear: () => void;
+  flush: () => void;
 };
 
 export type JottEditorProps = {
@@ -27,6 +28,8 @@ export type JottEditorProps = {
   onSubmit?: (markdown: string) => void;
   onCancel?: () => void;
   onChange?: (markdown: string) => void;
+  onAutoSave?: (markdown: string) => void;
+  autoSaveDebounceMs?: number;
 };
 
 const DEFAULT_PLACEHOLDER = 'What just happened? Tag people with @ and topics with #';
@@ -40,6 +43,8 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
     onSubmit,
     onCancel,
     onChange,
+    onAutoSave,
+    autoSaveDebounceMs = 800,
   },
   ref,
 ) {
@@ -64,6 +69,46 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
   onCancelRef.current = onCancel;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onAutoSaveRef = useRef(onAutoSave);
+  onAutoSaveRef.current = onAutoSave;
+
+  // Debounced autosave bookkeeping.
+  const lastSavedRef = useRef<string>(initialBody.trim());
+  const pendingMdRef = useRef<string | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current != null) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    const md = pendingMdRef.current;
+    pendingMdRef.current = null;
+    if (md == null || md === lastSavedRef.current || md.length === 0) return;
+    lastSavedRef.current = md;
+    onAutoSaveRef.current?.(md);
+  }, []);
+
+  const scheduleAutoSave = useCallback(
+    (md: string) => {
+      if (!onAutoSaveRef.current) return;
+      if (md === lastSavedRef.current || md.length === 0) {
+        if (autoSaveTimerRef.current != null) {
+          clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = null;
+        }
+        pendingMdRef.current = null;
+        return;
+      }
+      pendingMdRef.current = md;
+      if (autoSaveTimerRef.current != null) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(flushAutoSave, autoSaveDebounceMs);
+    },
+    [autoSaveDebounceMs, flushAutoSave],
+  );
+
+  // Flush any pending autosave on unmount so transient edits don't get lost.
+  useEffect(() => () => flushAutoSave(), [flushAutoSave]);
 
   const initialContent = useMemo(
     () => (initialBody.length > 0 ? markdownToDoc(initialBody) : undefined),
@@ -104,7 +149,9 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
     autofocus: autoFocus,
     immediatelyRender: false,
     onUpdate({ editor: ed }) {
-      onChangeRef.current?.(docToMarkdown(ed.getJSON() as never).trim());
+      const md = docToMarkdown(ed.getJSON() as never).trim();
+      onChangeRef.current?.(md);
+      scheduleAutoSave(md);
     },
   });
 
@@ -114,9 +161,18 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
       focus: () => editor?.commands.focus('end'),
       getMarkdown: () => (editor ? docToMarkdown(editor.getJSON() as never).trim() : ''),
       isEmpty: () => editor?.isEmpty ?? true,
-      clear: () => editor?.commands.clearContent(true),
+      clear: () => {
+        editor?.commands.clearContent(true);
+        lastSavedRef.current = '';
+        pendingMdRef.current = null;
+        if (autoSaveTimerRef.current != null) {
+          clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = null;
+        }
+      },
+      flush: flushAutoSave,
     }),
-    [editor],
+    [editor, flushAutoSave],
   );
 
   // Refresh chip decorations when the tag list changes.

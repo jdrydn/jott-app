@@ -15,7 +15,6 @@ export type ComposerHandle = {
 
 export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
   const [focused, setFocused] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(true);
   const editorRef = useRef<JottEditorHandle>(null);
   const utils = trpc.useUtils();
 
@@ -24,7 +23,6 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
       utils.entries.list.invalidate();
       utils.tags.list.invalidate();
       editorRef.current?.clear();
-      setIsEmpty(true);
     },
   });
 
@@ -39,22 +37,13 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
 
   const cancel = useCallback(() => {
     editorRef.current?.clear();
-    setIsEmpty(true);
   }, []);
 
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus(),
   }));
 
-  const canSubmit = !isEmpty && !create.isPending;
-
-  function onFormSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (editorRef.current) submit(editorRef.current.getMarkdown());
-  }
-
   function onFormKey(e: KeyboardEvent<HTMLFormElement>) {
-    // Editor handles Esc itself; this is a fallback for clicks within the form chrome.
     if (e.key === 'Escape') {
       e.preventDefault();
       cancel();
@@ -66,40 +55,30 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
       className={`mb-10 overflow-hidden rounded-lg border bg-white transition-colors ${
         focused ? 'border-slate-400 ring-2 ring-slate-100' : 'border-gray-200'
       }`}
-      onSubmit={onFormSubmit}
+      onSubmit={(e) => {
+        e.preventDefault();
+      }}
       onKeyDown={onFormKey}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <JottEditor
-        ref={editorRef}
-        autoFocus="end"
-        onSubmit={submit}
-        onCancel={cancel}
-        onChange={(md) => setIsEmpty(md.length === 0)}
-      />
-      <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-3 py-2">
-        <div className="flex items-center gap-1.5 text-xs">
+      <JottEditor ref={editorRef} autoFocus="end" onSubmit={submit} onCancel={cancel} />
+      <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/60 px-3 py-2 text-xs">
+        <div className="flex items-center gap-1.5">
           <HintChip sigil="@" label="mention" mono />
           <HintChip sigil="#" label="topic" mono />
-          <HintChip sigil="esc" label="dismiss" />
         </div>
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            canSubmit ? 'bg-slate-500 text-white hover:bg-slate-600' : 'bg-gray-100 text-gray-400'
-          }`}
-        >
-          {create.isPending ? 'Saving…' : 'Save entry'}
-          <kbd className="font-mono text-[11px] opacity-70">⌘⏎</kbd>
-        </button>
+        <div className="flex items-center gap-3 text-gray-500">
+          {create.error ? (
+            <span className="text-red-600">{create.error.message}</span>
+          ) : create.isPending ? (
+            <span>Saving…</span>
+          ) : null}
+          <span>
+            <kbd className="font-mono">⌘⏎</kbd> save · <kbd className="font-mono">esc</kbd> dismiss
+          </span>
+        </div>
       </div>
-      {create.error ? (
-        <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-600">
-          {create.error.message}
-        </p>
-      ) : null}
     </form>
   );
 });
