@@ -1,0 +1,67 @@
+import type { ReactNode } from 'react';
+
+export function Sidebar() {
+  return (
+    <div className="space-y-7">
+      <Section title="Recent People" count={0}>
+        <p className="text-xs text-gray-400">No mentions yet.</p>
+      </Section>
+      <Section title="Topics" count={0}>
+        <p className="text-xs text-gray-400">No topics yet.</p>
+      </Section>
+      <TipsBlock />
+    </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <header className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</h2>
+        {count > 0 ? (
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+            {count}
+          </span>
+        ) : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function TipsBlock() {
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Tips</h2>
+      <ul className="space-y-1.5 text-xs text-gray-600">
+        <TipRow keys="⌘K" label="open search" />
+        <TipRow keys="N" label="new entry / focus composer" />
+        <TipRow keys="⌘⏎" label="save entry" />
+      </ul>
+      <p className="mt-3 text-xs text-gray-500">
+        Type <code className="font-mono text-teal-600">@</code> to mention,{' '}
+        <code className="font-mono text-teal-600">#</code> to tag.
+      </p>
+    </section>
+  );
+}
+
+function TipRow({ keys, label }: { keys: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <kbd className="inline-block min-w-[1.5rem] rounded border border-gray-200 bg-white px-1.5 py-0.5 text-center font-mono text-[11px] text-gray-600">
+        {keys}
+      </kbd>
+      <span>{label}</span>
+    </li>
+  );
+}

@@ -1,69 +1,49 @@
-import { useState } from 'react';
-import { trpc } from './trpc';
+import { useEffect, useRef } from 'react';
+import { Composer } from './components/Composer';
+import { EntryFeed } from './components/EntryFeed';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
 
 export function App() {
-  const [body, setBody] = useState('');
-  const utils = trpc.useUtils();
-  const list = trpc.entries.list.useQuery();
-  const create = trpc.entries.create.useMutation({
-    onSuccess: () => {
-      setBody('');
-      utils.entries.list.invalidate();
-    },
-  });
+  const searchRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
-  const trimmed = body.trim();
-  const canSubmit = trimmed.length > 0 && !create.isPending;
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const editable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable === true;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey && !e.altKey && !editable) {
+        e.preventDefault();
+        composerRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-3xl font-bold">jottapp</h1>
-
-      <form
-        className="mb-8"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (canSubmit) create.mutate({ body: trimmed });
-        }}
-      >
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Jot something down…"
-          rows={4}
-          disabled={create.isPending}
-          className="w-full rounded border border-gray-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
-        />
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
-            {create.error ? `Error: ${create.error.message}` : `${trimmed.length} characters`}
-          </span>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {create.isPending ? 'Saving…' : 'Jot it down'}
-          </button>
+    <div className="min-h-screen bg-white text-gray-900">
+      <div className="mx-auto max-w-6xl px-6">
+        <Header searchRef={searchRef} />
+        <div className="flex gap-12 border-t border-gray-200 py-8">
+          <main className="min-w-0 flex-1">
+            <Composer textareaRef={composerRef} />
+            <EntryFeed />
+          </main>
+          <aside className="w-64 shrink-0">
+            <Sidebar />
+          </aside>
         </div>
-      </form>
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500">Entries</h2>
-        {list.isLoading && <p className="text-gray-500">Loading…</p>}
-        {list.error && <p className="text-red-500">Error: {list.error.message}</p>}
-        {list.data?.length === 0 && <p className="text-gray-500">No entries yet.</p>}
-        <ul className="space-y-3">
-          {list.data?.map((entry) => (
-            <li key={entry.id} className="rounded border border-gray-200 bg-white p-4">
-              <time className="text-xs text-gray-500">
-                {new Date(entry.createdAt).toLocaleString()}
-              </time>
-              <p className="mt-1 whitespace-pre-wrap">{entry.body}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
