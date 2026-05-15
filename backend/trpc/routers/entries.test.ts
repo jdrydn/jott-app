@@ -19,7 +19,7 @@ function setup(): Setup {
   const raw = new Database(':memory:');
   migrate(raw);
   const db = drizzle(raw, { schema });
-  const caller = createCaller({ db });
+  const caller = createCaller({ db, dbPath: ':memory:' });
   return { caller, raw };
 }
 

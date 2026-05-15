@@ -35,21 +35,25 @@ export function EntryFeed({
   const active = isSearching ? search : list;
 
   if (active.isLoading) {
-    return <p className="text-sm text-gray-500">Loading…</p>;
+    return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
   }
   if (active.error) {
-    return <p className="text-sm text-red-500">Error: {active.error.message}</p>;
+    return <p className="text-sm text-red-500 dark:text-red-400">Error: {active.error.message}</p>;
   }
 
   const data = active.data ?? [];
 
   if (isSearching) {
     if (data.length === 0) {
-      return <p className="text-sm italic text-gray-400">No entries match "{debouncedQuery}".</p>;
+      return (
+        <p className="text-sm italic text-gray-400 dark:text-gray-500">
+          No entries match "{debouncedQuery}".
+        </p>
+      );
     }
     return (
       <div className="space-y-5">
-        <p className="text-xs uppercase tracking-wider text-gray-500">
+        <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
           {data.length} {data.length === 1 ? 'result' : 'results'} for "{debouncedQuery}"
         </p>
         <ul className="space-y-5">
@@ -64,12 +68,16 @@ export function EntryFeed({
   const groups = groupByDay(data);
 
   if (trash && groups.every((g) => g.entries.length === 0)) {
-    return <p className="text-sm italic text-gray-400">Trash is empty.</p>;
+    return <p className="text-sm italic text-gray-400 dark:text-gray-500">Trash is empty.</p>;
   }
 
   const hasFilter = filters.tagId != null || filters.from != null || filters.to != null;
   if (!trash && hasFilter && data.length === 0) {
-    return <p className="text-sm italic text-gray-400">No entries match the active filter.</p>;
+    return (
+      <p className="text-sm italic text-gray-400 dark:text-gray-500">
+        No entries match the active filter.
+      </p>
+    );
   }
 
   return (
@@ -106,21 +114,23 @@ function DaySection({
 }) {
   return (
     <section>
-      <header className="mb-4 flex items-baseline justify-between border-b border-gray-200 pb-2">
+      <header className="mb-4 flex items-baseline justify-between border-b border-gray-200 pb-2 dark:border-gray-800">
         <div className="flex items-baseline gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
             {group.label}
           </span>
-          <span className="text-xs text-gray-400">{group.dateFormatted}</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{group.dateFormatted}</span>
         </div>
         {group.entries.length > 0 ? (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-400 dark:text-gray-500">
             {group.entries.length} {group.entries.length === 1 ? 'entry' : 'entries'}
           </span>
         ) : null}
       </header>
       {group.entries.length === 0 ? (
-        <p className="text-sm italic text-gray-400">Nothing yet. Type above to start.</p>
+        <p className="text-sm italic text-gray-400 dark:text-gray-500">
+          Nothing yet. Type above to start.
+        </p>
       ) : (
         <ul className="space-y-5">
           {group.entries.map((entry) => (
@@ -165,7 +175,7 @@ function EntryRow({
 
   return (
     <li className={`group flex gap-6 ${muted}`}>
-      <span className="mt-0.5 w-12 shrink-0 font-mono text-xs text-gray-400">
+      <span className="mt-0.5 w-12 shrink-0 font-mono text-xs text-gray-400 dark:text-gray-500">
         {formatTime(entry.createdAt)}
       </span>
       <div className="min-w-0 flex-1 space-y-2">
@@ -219,7 +229,7 @@ function RowAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded p-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="rounded p-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       title={title}
       aria-label={title}
     >
@@ -272,7 +282,7 @@ function EntryEditor({ entry, onDone }: { entry: EntryWithTags; onDone: () => vo
   return (
     <div
       ref={containerRef}
-      className="overflow-hidden rounded-lg border border-slate-300 ring-2 ring-slate-100"
+      className="overflow-hidden rounded-lg border border-slate-300 bg-white ring-2 ring-slate-100 dark:border-slate-600 dark:bg-gray-900 dark:ring-slate-800/60"
     >
       <JottEditor
         ref={editorRef}
@@ -282,8 +292,8 @@ function EntryEditor({ entry, onDone }: { entry: EntryWithTags; onDone: () => vo
         onCancel={exit}
         onAutoSave={autoSave}
       />
-      <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-3 py-1.5 text-xs">
-        <span className="text-gray-500">
+      <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/60 px-3 py-1.5 text-xs dark:border-gray-800 dark:bg-gray-950/40">
+        <span className="text-gray-500 dark:text-gray-400">
           <kbd className="font-mono">esc</kbd> close · changes save automatically
         </span>
         <SaveStatus pending={update.isPending} error={update.error?.message} savedAt={savedAt} />
@@ -301,9 +311,9 @@ function SaveStatus({
   error?: string;
   savedAt: number | null;
 }) {
-  if (error) return <span className="text-red-600">{error}</span>;
-  if (pending) return <span className="text-gray-400">Saving…</span>;
-  if (savedAt != null) return <span className="text-emerald-600">Saved</span>;
+  if (error) return <span className="text-red-600 dark:text-red-400">{error}</span>;
+  if (pending) return <span className="text-gray-400 dark:text-gray-500">Saving…</span>;
+  if (savedAt != null) return <span className="text-emerald-600 dark:text-emerald-400">Saved</span>;
   return null;
 }
 

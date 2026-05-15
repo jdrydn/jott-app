@@ -222,4 +222,42 @@ describe('migrate', () => {
       .all() as Array<{ id: string }>;
     expect(rows).toEqual([{ id: 'legacy' }]);
   });
+
+  test('creates profile table with id CHECK constraint', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const row = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='profile'")
+      .get();
+    expect(row).toEqual({ name: 'profile' });
+
+    expect(() =>
+      db.exec(
+        `INSERT INTO profile (id, name, theme, created_at) VALUES ('them', 'X', 'system', 1)`,
+      ),
+    ).toThrow();
+    db.exec(`INSERT INTO profile (id, name, theme, created_at) VALUES ('me', 'Me', 'system', 1)`);
+  });
+
+  test('profile theme CHECK rejects invalid values', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    expect(() =>
+      db.exec(`INSERT INTO profile (id, name, theme, created_at) VALUES ('me', 'X', 'sepia', 1)`),
+    ).toThrow();
+  });
+
+  test('creates settings key/value table', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const row = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")
+      .get();
+    expect(row).toEqual({ name: 'settings' });
+
+    db.exec(`INSERT INTO settings (key, value, updated_at) VALUES ('claude.binary', 'claude', 1)`);
+    expect(() =>
+      db.exec(`INSERT INTO settings (key, value, updated_at) VALUES ('claude.binary', 'other', 2)`),
+    ).toThrow();
+  });
 });

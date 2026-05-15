@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Paint the root element so iOS/macOS rubber-band overscroll matches the page. */
+html {
+  background-color: #ffffff;
+}
+
+html.dark {
+  background-color: #030712; /* gray-950 */
+}
+
 .jott-chip {
   --jott-chip-color: #6b7280;
   border-radius: 0.25rem;
@@ -64,6 +75,11 @@
   margin: 0.25rem 0;
 }
 
+.dark .jott-editor blockquote {
+  border-left-color: #374151;
+  color: #9ca3af;
+}
+
 .jott-editor pre {
   background: #f3f4f6;
   border-radius: 0.375rem;
@@ -71,6 +87,11 @@
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.85em;
   overflow-x: auto;
+}
+
+.dark .jott-editor pre {
+  background: #1f2937;
+  color: #e5e7eb;
 }
 
 .jott-editor code {
@@ -81,16 +102,29 @@
   font-size: 0.9em;
 }
 
+.dark .jott-editor code {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
 .jott-editor pre code {
   background: transparent;
   padding: 0;
   font-size: 1em;
 }
 
+.dark .jott-editor pre code {
+  background: transparent;
+}
+
 .jott-editor hr {
   border: 0;
   border-top: 1px solid #e5e7eb;
   margin: 0.75rem 0;
+}
+
+.dark .jott-editor hr {
+  border-top-color: #374151;
 }
 
 .jott-editor .ProseMirror-focused {
@@ -103,4 +137,8 @@
   color: #9ca3af;
   pointer-events: none;
   height: 0;
+}
+
+.dark .jott-editor p.is-editor-empty:first-child::before {
+  color: #6b7280;
 }
