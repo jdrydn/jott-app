@@ -32,7 +32,7 @@ function main(): void {
     }
   }
 
-  const app = createApp({ db: dbHandle.db });
+  const app = createApp({ db: dbHandle.db, dbPath: opts.dbPath });
 
   try {
     const handle = serveApp({ port: opts.port, app });

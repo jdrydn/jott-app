@@ -57,7 +57,7 @@ function Chip({
 }) {
   if (!resolved) {
     return (
-      <span className="text-gray-500" title="Tag not linked">
+      <span className="text-gray-500 dark:text-gray-400" title="Tag not linked">
         {sigil}
         {word}
       </span>

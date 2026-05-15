@@ -55,12 +55,12 @@ export function Sidebar({
 
 function DeletedRow({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
-    active ? 'bg-slate-100' : 'hover:bg-gray-100'
+    active ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
   }`;
   return (
     <button type="button" onClick={onToggle} className={className}>
       <TrashIcon />
-      <span className="flex-1 truncate text-sm text-gray-800">
+      <span className="flex-1 truncate text-sm text-gray-800 dark:text-gray-200">
         {active ? 'Showing trash' : 'Show deleted'}
       </span>
     </button>
@@ -73,7 +73,7 @@ function TrashIcon() {
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 20 20"
       fill="currentColor"
-      className="h-4 w-4 shrink-0 text-gray-500"
+      className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400"
       aria-hidden="true"
     >
       <path
@@ -99,7 +99,11 @@ function PeopleList({
       {people.map((p) => {
         const active = p.id === activeId;
         const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1 text-left ${
-          active ? 'bg-slate-100' : onSelect ? 'hover:bg-gray-100' : ''
+          active
+            ? 'bg-slate-100 dark:bg-slate-800'
+            : onSelect
+              ? 'hover:bg-gray-100 dark:hover:bg-gray-800'
+              : ''
         }`;
         const inner = (
           <>
@@ -109,8 +113,12 @@ function PeopleList({
             >
               {p.initials}
             </div>
-            <span className="flex-1 truncate text-sm capitalize text-gray-800">{p.name}</span>
-            <span className="text-xs text-gray-400">{formatRelative(p.lastSeen)}</span>
+            <span className="flex-1 truncate text-sm capitalize text-gray-800 dark:text-gray-200">
+              {p.name}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {formatRelative(p.lastSeen)}
+            </span>
           </>
         );
         return (
@@ -143,15 +151,21 @@ function TopicList({
       {topics.map((t) => {
         const active = t.id === activeId;
         const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
-          active ? 'bg-slate-100' : onSelect ? 'hover:bg-gray-100' : ''
+          active
+            ? 'bg-slate-100 dark:bg-slate-800'
+            : onSelect
+              ? 'hover:bg-gray-100 dark:hover:bg-gray-800'
+              : ''
         }`;
         const inner = (
           <>
             <span className="font-mono" style={{ color: t.color }}>
               #
             </span>
-            <span className="flex-1 truncate text-sm text-gray-800">{t.name}</span>
-            <span className="text-xs text-gray-400">{t.count}</span>
+            <span className="flex-1 truncate text-sm text-gray-800 dark:text-gray-200">
+              {t.name}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{t.count}</span>
           </>
         );
         return (
@@ -182,9 +196,11 @@ function Section({
   return (
     <section>
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          {title}
+        </h2>
         {count > 0 ? (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             {count}
           </span>
         ) : null}
@@ -195,21 +211,23 @@ function Section({
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-xs text-gray-400">{children}</p>;
+  return <p className="text-xs text-gray-400 dark:text-gray-500">{children}</p>;
 }
 
 function TipsBlock() {
   return (
     <section>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Tips</h2>
-      <ul className="space-y-1.5 text-xs text-gray-600">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        Tips
+      </h2>
+      <ul className="space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
         <TipRow keys="⌘K" label="open search" />
         <TipRow keys="N" label="new entry / focus composer" />
         <TipRow keys="⌘⏎" label="save entry" />
       </ul>
-      <p className="mt-3 text-xs text-gray-500">
-        Type <code className="font-mono text-slate-600">@</code> to mention,{' '}
-        <code className="font-mono text-slate-600">#</code> to tag.
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        Type <code className="font-mono text-slate-600 dark:text-slate-300">@</code> to mention,{' '}
+        <code className="font-mono text-slate-600 dark:text-slate-300">#</code> to tag.
       </p>
     </section>
   );
@@ -218,7 +236,7 @@ function TipsBlock() {
 function TipRow({ keys, label }: { keys: string; label: string }) {
   return (
     <li className="flex items-center gap-2">
-      <kbd className="inline-block min-w-[1.5rem] rounded border border-gray-200 bg-white px-1.5 py-0.5 text-center font-mono text-[11px] text-gray-600">
+      <kbd className="inline-block min-w-[1.5rem] rounded border border-gray-200 bg-white px-1.5 py-0.5 text-center font-mono text-[11px] text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
         {keys}
       </kbd>
       <span>{label}</span>

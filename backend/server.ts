@@ -10,13 +10,14 @@ const TRPC_PREFIX = '/api/trpc';
 
 export type AppDeps = {
   db: Db;
+  dbPath: string;
 };
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.get('/healthz', (c) => c.json({ ok: true, version: VERSION }));
 
-  const createContext = makeCreateContext({ db: deps.db });
+  const createContext = makeCreateContext({ db: deps.db, dbPath: deps.dbPath });
   app.all(`${TRPC_PREFIX}/*`, (c) =>
     fetchRequestHandler({
       endpoint: TRPC_PREFIX,

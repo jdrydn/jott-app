@@ -246,25 +246,27 @@ Gated — each leaves a working, runnable binary.
 - CI: GitHub Actions — lint + format-check + typecheck + test, plus 5-target cross-compile matrix (macOS arm64/x64, Linux x64/arm64, Windows x64) with artifact upload
 - **Goal:** ✓ proven — single-binary + server + DB + UI + typed-API pipeline end-to-end.
 
-### M1 — Rich editor + tags
+### M1 — Rich editor + tags ✓ shipped 2026-05-14
 - TipTap with the allowed mark set (§6)
 - Markdown serialize on save, parse on load
 - Round-trip tests (golden files)
 - Tag extraction (`#topic`, `@user`) on save → `tags` + `entry_tags` reconciliation
 - Tag highlighting in editor (chip rendering with colour/initials)
 
-### M2 — Capture polish + Discover
+### M2 — Capture polish + Discover ✓ shipped 2026-05-14
 - Autosave (debounced) — no save button
 - Edit / soft-delete / restore (in UI)
 - FTS5 search bar
 - Date-range filter, tag filter (by tag chip)
 - Day/week grouping in list view
 
-### M3 — Config & profile
-- First-run onboarding screen (asks name)
-- "Hello $name" header
-- Settings screen: name, theme, db path, claude binary
-- `settings` table behind it
+### M3 — Config & profile ✓ shipped 2026-05-15
+- Wouter router: `/` redirects to `/start` (no profile) or `/timeline`; `/settings` for config
+- `/start` onboarding screen (asks name) — also reachable to edit later
+- "Hello $name" header on `/timeline`; banner on `/timeline` when no profile yet
+- `/settings` page: name, theme (light/dark/system), db path (read-only), claude binary
+- `profile` (singleton) + `settings` (key/value) tables; `system.info` exposes db path + version
+- Dark mode visual pass: class-based `dark:` variants applied across all components, with system-pref detection
 
 ### M4 — AI integration
 - tRPC `ai.*` router: `status`, `summarise`, `reflect`, `ask`
@@ -436,3 +438,8 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-13 | Tailwind v4 with `@tailwindcss/vite`; no `tailwind.config.ts`             | v4 moves config into CSS via `@theme {}`; no JS config file needed         |
 | 2026-05-13 | Static assets embedded via `with { type: 'file' }` import attribute       | Bun's `bun build --compile` embeds these; the runtime path resolves via `$bunfs` automatically |
 | 2026-05-13 | Asset manifest generated at build time + stub committed for dev imports   | `backend/staticAssets.generated.ts` is committed as an empty Map; build script regenerates it, then restores the stub in `finally` so git stays clean |
+| 2026-05-15 | Real client-side router via wouter (already a dep)                        | Three pages now: `/start`, `/timeline`, `/settings`. Lighter than react-router; matches the `Link` UX we want |
+| 2026-05-15 | `/` decides destination from profile presence; `/timeline` shows banner if no profile | Direct nav to `/timeline` shouldn't lose the "set your name" prompt; redirect-on-root keeps the cold-start UX clean |
+| 2026-05-15 | Settings split: `profile` (singleton) for personalisation, `settings` (k/v) for app config | Theme + name are per-user identity; `claude.binary` etc. are app-wide config — different shapes deserve different tables |
+| 2026-05-15 | `db.path` is read-only in the UI (set at startup via `--db`/`JOTTAPP_DB`) | Changing the path mid-session would orphan the open DB handle; the setting screen surfaces it but doesn't pretend it's editable |
+| 2026-05-15 | Dark mode via class-based `dark:` variants, applied to `<html>` from React | Tailwind v4 `@custom-variant dark (&:where(.dark, .dark *))`; `useApplyTheme` listens to `prefers-color-scheme` for `system` |

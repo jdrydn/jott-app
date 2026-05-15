@@ -60,3 +60,25 @@ export const entryTags = sqliteTable(
 
 export type EntryTag = typeof entryTags.$inferSelect;
 export type NewEntryTag = typeof entryTags.$inferInsert;
+
+export const profile = sqliteTable('profile', {
+  id: text('id').primaryKey().notNull().$type<'me'>(),
+  name: text('name').notNull(),
+  theme: text('theme', { enum: ['light', 'dark', 'system'] })
+    .notNull()
+    .default('system'),
+  createdAt: integer('created_at').notNull(),
+});
+
+export type Profile = typeof profile.$inferSelect;
+export type NewProfile = typeof profile.$inferInsert;
+export type ProfileTheme = Profile['theme'];
+
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey().notNull(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;

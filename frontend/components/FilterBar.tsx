@@ -20,8 +20,10 @@ export function FilterBar({
   const hasAnyFilter = activeTag != null || filters.from != null || filters.to != null;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
-      <span className="font-medium uppercase tracking-wider text-gray-500">Filter</span>
+    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-800 dark:bg-gray-900">
+      <span className="font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        Filter
+      </span>
 
       {activeTag ? (
         <span
@@ -43,7 +45,7 @@ export function FilterBar({
           </button>
         </span>
       ) : (
-        <span className="text-gray-400">No tag</span>
+        <span className="text-gray-400 dark:text-gray-500">No tag</span>
       )}
 
       <DateField
@@ -62,7 +64,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={() => onChange({})}
-          className="ml-auto rounded px-2 py-1 text-gray-600 hover:bg-gray-200 hover:text-gray-800"
+          className="ml-auto rounded px-2 py-1 text-gray-600 hover:bg-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
         >
           Clear all
         </button>
@@ -83,13 +85,13 @@ function DateField({
   onChange: (ms: number | undefined) => void;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-gray-600">
+    <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
       <span>{label}</span>
       <input
         type="date"
         value={msToInput(valueMs)}
         onChange={(e) => onChange(inputToMs(e.target.value, endOfDay))}
-        className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-slate-300"
+        className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-slate-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-slate-600 dark:[color-scheme:dark]"
       />
     </label>
   );
