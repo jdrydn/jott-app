@@ -1,3 +1,4 @@
+import type { Database } from 'bun:sqlite';
 import { VERSION } from '@shared/version';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
@@ -11,6 +12,7 @@ const TRPC_PREFIX = '/api/trpc';
 
 export type AppDeps = {
   db: Db;
+  raw: Database;
   dbPath: string;
   claude: ClaudeDetection;
 };
@@ -21,6 +23,7 @@ export function createApp(deps: AppDeps): Hono {
 
   const createContext = makeCreateContext({
     db: deps.db,
+    raw: deps.raw,
     dbPath: deps.dbPath,
     claude: deps.claude,
   });

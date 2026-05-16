@@ -1,5 +1,5 @@
 import type { ProfileTheme } from '@backend/db/schema';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { DriverIcon } from '../components/DriverIcon';
 import { useToast } from '../components/Toast';
@@ -13,24 +13,36 @@ const THEME_OPTIONS: ReadonlyArray<{ value: ProfileTheme; label: string; hint: s
 
 const DRIVER_OPTIONS = [{ value: 'claude', label: 'Claude Code' }] as const;
 
+const ON_QUIT_OPTIONS: ReadonlyArray<{ value: 'true' | 'false'; label: string; hint: string }> = [
+  { value: 'false', label: 'Off', hint: 'No backup taken on shutdown' },
+  { value: 'true', label: 'On', hint: 'VACUUM INTO snapshot before exit' },
+];
+
 export function Settings() {
   const [, setLocation] = useLocation();
   const profile = trpc.profile.get.useQuery();
   const settings = trpc.settings.getAll.useQuery();
   const system = trpc.system.info.useQuery();
   const aiStatus = trpc.ai.status.useQuery();
+  const backupDir = trpc.data.backupDirPreview.useQuery();
   const utils = trpc.useUtils();
   const toast = useToast();
 
   const upsertProfile = trpc.profile.upsert.useMutation();
   const setSetting = trpc.settings.set.useMutation();
+  const runBackup = trpc.data.backup.useMutation();
+  const importMarkdown = trpc.data.importMarkdown.useMutation();
 
   const [name, setName] = useState('');
   const [theme, setTheme] = useState<ProfileTheme>('system');
   const [aiDriver, setAiDriver] = useState('claude');
   const [claudeConfigDir, setClaudeConfigDir] = useState('');
   const [claudeModel, setClaudeModel] = useState('');
+  const [backupOnQuit, setBackupOnQuit] = useState<'true' | 'false'>('false');
+  const [backupDirValue, setBackupDirValue] = useState('');
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile.data) {
@@ -44,6 +56,8 @@ export function Settings() {
       setAiDriver(settings.data['ai.driver']);
       setClaudeConfigDir(settings.data['ai.claude.config-dir']);
       setClaudeModel(settings.data['ai.claude.model']);
+      setBackupOnQuit(settings.data['backup.onQuit'] === 'true' ? 'true' : 'false');
+      setBackupDirValue(settings.data['backup.dir']);
     }
   }, [settings.data]);
 
@@ -63,12 +77,62 @@ export function Settings() {
         value: claudeConfigDir.trim(),
       });
       await setSetting.mutateAsync({ key: 'ai.claude.model', value: claudeModel.trim() });
+      await setSetting.mutateAsync({ key: 'backup.onQuit', value: backupOnQuit });
+      await setSetting.mutateAsync({ key: 'backup.dir', value: backupDirValue.trim() });
       await Promise.all([
         utils.profile.get.invalidate(),
         utils.settings.getAll.invalidate(),
         utils.ai.status.invalidate(),
+        utils.data.backupDirPreview.invalidate(),
       ]);
       toast.push('Settings saved');
+    } catch (err) {
+      toast.push((err as Error).message);
+    }
+  }
+
+  async function onExport() {
+    setExporting(true);
+    try {
+      const result = await utils.data.exportMarkdown.fetch();
+      const blob = new Blob([result.text], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      const noun = result.count === 1 ? 'entry' : 'entries';
+      toast.push(`Exported ${result.count} ${noun}`);
+    } catch (err) {
+      toast.push((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function onImportFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const result = await importMarkdown.mutateAsync({ text });
+      await Promise.all([utils.entries.list.invalidate(), utils.tags.list.invalidate()]);
+      toast.push(
+        `Imported ${result.imported}, skipped ${result.skipped} (already present), of ${result.total}`,
+      );
+    } catch (err) {
+      toast.push((err as Error).message);
+    }
+  }
+
+  async function onRunBackup() {
+    try {
+      const result = await runBackup.mutateAsync();
+      toast.push(`Backup written: ${result.path}`);
     } catch (err) {
       toast.push((err as Error).message);
     }
@@ -198,6 +262,104 @@ export function Settings() {
             </Field>
           </Section>
 
+          <Section title="Data" subtitle="Export, import, and snapshot your journal.">
+            <Field
+              id="exportImport"
+              label="Markdown bundle"
+              hint="Export creates a portable markdown file. Import re-adds entries that aren't already in this database (matched by id)."
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onExport}
+                  disabled={exporting}
+                  className={secondaryButtonClasses}
+                >
+                  {exporting ? 'Exporting…' : 'Export markdown'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importMarkdown.isPending}
+                  className={secondaryButtonClasses}
+                >
+                  {importMarkdown.isPending ? 'Importing…' : 'Import markdown…'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".md,text/markdown,text/plain"
+                  className="hidden"
+                  onChange={onImportFileChange}
+                />
+              </div>
+            </Field>
+
+            <Field
+              id="backupOnQuit"
+              label="Backup on quit"
+              hint="When enabled, jottapp writes a consistent SQLite snapshot before exit."
+            >
+              <fieldset id="backupOnQuit" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {ON_QUIT_OPTIONS.map((opt) => {
+                  const active = backupOnQuit === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`flex cursor-pointer flex-col rounded-lg border px-3 py-2 text-sm transition ${
+                        active
+                          ? 'border-slate-500 bg-slate-50 text-slate-900 dark:border-slate-400 dark:bg-slate-800 dark:text-slate-100'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="backupOnQuit"
+                        value={opt.value}
+                        checked={active}
+                        onChange={() => setBackupOnQuit(opt.value)}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{opt.hint}</span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            </Field>
+
+            <Field
+              id="backupDir"
+              label="Backup directory"
+              hint={
+                backupDir.data
+                  ? `Snapshots land in ${backupDir.data.resolved}${
+                      backupDir.data.isDefault ? ' (default)' : ''
+                    }.`
+                  : 'Loading…'
+              }
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  id="backupDir"
+                  type="text"
+                  value={backupDirValue}
+                  onChange={(e) => setBackupDirValue(e.target.value)}
+                  placeholder={backupDir.data?.isDefault ? backupDir.data.resolved : ''}
+                  className={`${inputClasses} font-mono text-sm`}
+                />
+                <button
+                  type="button"
+                  onClick={onRunBackup}
+                  disabled={runBackup.isPending}
+                  className={`${secondaryButtonClasses} shrink-0`}
+                >
+                  {runBackup.isPending ? 'Backing up…' : 'Backup now'}
+                </button>
+              </div>
+            </Field>
+          </Section>
+
           <Section title="System" subtitle="Where the journal lives on disk.">
             <Field
               id="dbPath"
@@ -249,6 +411,9 @@ export function Settings() {
 
 const inputClasses =
   'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 placeholder-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:ring-slate-700';
+
+const secondaryButtonClasses =
+  'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700';
 
 function Section({
   title,

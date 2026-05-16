@@ -15,6 +15,7 @@ function setup(dbPath: string) {
   const db = drizzle(raw, { schema });
   return createCaller({
     db,
+    raw,
     dbPath,
     claude: { available: false, binaryPath: null, version: null },
   });

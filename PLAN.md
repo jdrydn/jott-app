@@ -282,10 +282,15 @@ Gated — each leaves a working, runnable binary.
 - Sidebar AI block on `/timeline` with three buttons; modal panel for action picking, current-window summary, question input (ask), result + copy
 - Settings page surfaces driver / config dir / model with a live "AI status" banner
 
-### M5 — Durability
-- Export to markdown bundle (UI button)
-- Import (UI flow)
-- Backup-on-quit (configurable)
+### M5 — Durability ✓ shipped 2026-05-16
+- Markdown export/import codec (`backend/data/markdown.ts`): single concatenated `.md` file with one HTML-comment marker (`<!-- @entry id="…" created="…" updated="…" -->`) per entry. Survives bodies containing horizontal rules (`---`); round-trip tested.
+- `data.exportMarkdown` query (oldest-first, soft-deleted excluded) returns `{ filename, text, count }`; UI triggers a Blob download.
+- `data.importMarkdown` mutation: parses, inserts entries whose IDs don't already exist (skip rather than merge), reconciles tags from body. Returns `{ imported, skipped, total }`.
+- Backup helper (`backend/data/backup.ts`): `VACUUM INTO` snapshot to `jottapp-YYYYMMDD-HHMMSS.db`; default dir = `<dbPath dirname>/backups/`, overridable via `backup.dir` setting.
+- `backup.onQuit` setting (`"true"`/`"false"`, default off) hooked into SIGINT/SIGTERM in `backend/index.ts` — snapshot taken before close, failures logged but don't block shutdown.
+- `data.backup` mutation for manual UI-triggered snapshots; `data.backupDirPreview` query exposes resolved/default path for the Settings hint.
+- Raw `Database` threaded through tRPC context (needed for `VACUUM INTO`).
+- Settings page gains a "Data" section: export, import (file picker), backup-on-quit toggle, backup-dir input, "Backup now" button.
 
 ### M6 — Image attachments
 - `attachments` table FK'd to entries: `id`, `entryId`, `kind: 'image'`, `path`, `mime`, `width`, `height`, `createdAt`
@@ -457,3 +462,9 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-15 | Pass `CLAUDE_CONFIG_DIR` env (not a CLI flag) to scope the claude session          | Lets users point at a different account/profile without hard-coupling to specific CLI flags that may change |
 | 2026-05-15 | Hard-code entry cap to 100 (no `ai.maxEntries` setting yet)                        | Avoids token blow-up; surface as a setting once a user actually wants to tune it |
 | 2026-05-15 | AI procedures throw `PRECONDITION_FAILED` when driver/binary unavailable           | Single high-level error — UI just renders the message; matches CLAUDE.md's "let errors bubble" |
+| 2026-05-16 | Export format: single concatenated `.md` file with HTML-comment entry markers      | Avoids `---` frontmatter delimiter clashing with TipTap horizontal rules in bodies; one file is more portable than a zip and needs no new dep |
+| 2026-05-16 | Import is insert-only (skip on ID collision; no merge)                             | Predictable semantics; merge would require resolving createdAt/updatedAt/body conflicts with no good default. User can re-export from another DB if they need history |
+| 2026-05-16 | Export excludes soft-deleted entries                                               | Export represents "the journal"; the live DB file (or `backup.onQuit` snapshot) is the right tool for full state including trash |
+| 2026-05-16 | Backup via SQLite `VACUUM INTO` (not file copy)                                    | Produces a consistent, optimized snapshot even with WAL pending writes — no need to checkpoint or close the DB |
+| 2026-05-16 | Raw `Database` handle threaded through tRPC context                                | Needed for `VACUUM INTO`; explicit dep beats reaching into Drizzle's `$client` private surface |
+| 2026-05-16 | Backup-on-quit failures are logged, not fatal                                      | Shutdown should always close the DB cleanly; a failed snapshot shouldn't leave the process hanging |

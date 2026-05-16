@@ -1,6 +1,7 @@
 import { VERSION } from '@shared/version';
 import { detectClaude } from './ai/claude';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
+import { backupDb, readBackupOnQuitSettings } from './data/backup';
 import { openDb } from './db/client';
 import { seedDemoData } from './db/seed';
 import { openBrowser } from './openBrowser';
@@ -34,7 +35,7 @@ function main(): void {
   }
 
   const claude = detectClaude();
-  const app = createApp({ db: dbHandle.db, dbPath: opts.dbPath, claude });
+  const app = createApp({ db: dbHandle.db, raw: dbHandle.raw, dbPath: opts.dbPath, claude });
 
   try {
     const handle = serveApp({ port: opts.port, app });
@@ -56,8 +57,20 @@ function main(): void {
   }
 
   const shutdown = (): void => {
-    dbHandle.close();
-    process.exit(0);
+    try {
+      const settings = readBackupOnQuitSettings(dbHandle.raw);
+      if (settings.enabled) {
+        try {
+          const result = backupDb(dbHandle.raw, opts.dbPath, { dir: settings.dir });
+          process.stdout.write(`backup: ${result.path} (${result.bytes} bytes)\n`);
+        } catch (err) {
+          process.stderr.write(`backup failed: ${(err as Error).message}\n`);
+        }
+      }
+    } finally {
+      dbHandle.close();
+      process.exit(0);
+    }
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

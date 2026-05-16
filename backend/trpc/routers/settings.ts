@@ -9,6 +9,8 @@ export const SETTING_DEFAULTS = {
   'ai.driver': 'claude',
   'ai.claude.config-dir': '',
   'ai.claude.model': 'sonnet',
+  'backup.onQuit': 'false',
+  'backup.dir': '',
 } satisfies Record<string, string>;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
