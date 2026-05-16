@@ -42,24 +42,26 @@ describe('entries.list', () => {
     s = setup();
   });
 
-  test('returns empty array on fresh db', async () => {
-    expect(await s.caller.entries.list()).toEqual([]);
+  test('returns empty page on fresh db', async () => {
+    const page = await s.caller.entries.list();
+    expect(page.items).toEqual([]);
+    expect(page.nextCursor).toBeNull();
   });
 
   test('returns created entries newest-first', async () => {
     const a = await s.caller.entries.create({ body: 'first' });
     await Bun.sleep(2);
     const b = await s.caller.entries.create({ body: 'second' });
-    const list = await s.caller.entries.list();
-    expect(list.map((e) => e.id)).toEqual([b.id, a.id]);
+    const { items } = await s.caller.entries.list();
+    expect(items.map((e) => e.id)).toEqual([b.id, a.id]);
   });
 
   test('omits soft-deleted entries', async () => {
     const a = await s.caller.entries.create({ body: 'kept' });
     const b = await s.caller.entries.create({ body: 'dropped' });
     s.raw.run('UPDATE entries SET deleted_at = ? WHERE id = ?', [Date.now(), b.id]);
-    const list = await s.caller.entries.list();
-    expect(list.map((e) => e.id)).toEqual([a.id]);
+    const { items } = await s.caller.entries.list();
+    expect(items.map((e) => e.id)).toEqual([a.id]);
   });
 
   test('limit is honoured', async () => {
@@ -67,8 +69,8 @@ describe('entries.list', () => {
       await s.caller.entries.create({ body: `e${i}` });
       await Bun.sleep(1);
     }
-    const list = await s.caller.entries.list({ limit: 3 });
-    expect(list).toHaveLength(3);
+    const { items } = await s.caller.entries.list({ limit: 3 });
+    expect(items).toHaveLength(3);
   });
 
   test('rejects invalid limit', async () => {
@@ -78,9 +80,9 @@ describe('entries.list', () => {
 
   test('attaches tag links per entry', async () => {
     await s.caller.entries.create({ body: 'hi @priya' });
-    const list = await s.caller.entries.list();
-    expect(list[0]?.tags).toHaveLength(1);
-    expect(list[0]?.tags[0]).toMatchObject({
+    const { items } = await s.caller.entries.list();
+    expect(items[0]?.tags).toHaveLength(1);
+    expect(items[0]?.tags[0]).toMatchObject({
       nameWhenLinked: 'priya',
       tag: { type: 'user', name: 'priya' },
     });
@@ -92,9 +94,113 @@ describe('entries.list', () => {
     if (!tag) throw new Error('unreachable');
     await s.caller.tags.rename({ id: tag.id, name: 'newname' });
 
-    const list = await s.caller.entries.list();
-    expect(list[0]?.tags[0]?.nameWhenLinked).toBe('oldname');
-    expect(list[0]?.tags[0]?.tag.name).toBe('newname');
+    const { items } = await s.caller.entries.list();
+    expect(items[0]?.tags[0]?.nameWhenLinked).toBe('oldname');
+    expect(items[0]?.tags[0]?.tag.name).toBe('newname');
+  });
+});
+
+describe('entries.list pagination', () => {
+  let s: Setup;
+  beforeEach(() => {
+    s = setup();
+  });
+
+  test('nextCursor is null when no more pages', async () => {
+    await s.caller.entries.create({ body: 'only' });
+    const page = await s.caller.entries.list();
+    expect(page.nextCursor).toBeNull();
+  });
+
+  test('walks every entry in order across pages, no duplicates', async () => {
+    const created: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const e = await s.caller.entries.create({ body: `e${i}` });
+      created.push(e.id);
+      await Bun.sleep(1);
+    }
+    const expectedOrder = [...created].reverse();
+
+    const seen: string[] = [];
+    let cursor: { ts: number; id: string } | null = null;
+    while (true) {
+      const page = await s.caller.entries.list({ limit: 3, cursor });
+      seen.push(...page.items.map((e) => e.id));
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toEqual(expectedOrder);
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  test('paginates trash by deletedAt', async () => {
+    const a = await s.caller.entries.create({ body: 'a' });
+    const b = await s.caller.entries.create({ body: 'b' });
+    const c = await s.caller.entries.create({ body: 'c' });
+    await s.caller.entries.delete({ id: a.id });
+    await Bun.sleep(1);
+    await s.caller.entries.delete({ id: b.id });
+    await Bun.sleep(1);
+    await s.caller.entries.delete({ id: c.id });
+
+    const first = await s.caller.entries.list({ trash: true, limit: 2 });
+    expect(first.items.map((e) => e.id)).toEqual([c.id, b.id]);
+    expect(first.nextCursor).not.toBeNull();
+
+    const second = await s.caller.entries.list({
+      trash: true,
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+    expect(second.items.map((e) => e.id)).toEqual([a.id]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  test('breaks createdAt ties via id (deterministic order across pages)', async () => {
+    const now = Date.now();
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const e = await s.caller.entries.create({ body: `e${i}` });
+      ids.push(e.id);
+    }
+    s.raw.run('UPDATE entries SET created_at = ?', [now]);
+
+    const expectedOrder = [...ids].sort().reverse();
+    const seen: string[] = [];
+    let cursor: { ts: number; id: string } | null = null;
+    while (true) {
+      const page = await s.caller.entries.list({ limit: 2, cursor });
+      seen.push(...page.items.map((e) => e.id));
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toEqual(expectedOrder);
+  });
+
+  test('cursor + tagId together still page correctly', async () => {
+    for (let i = 0; i < 5; i++) {
+      await s.caller.entries.create({ body: `#work entry ${i}` });
+      await Bun.sleep(1);
+    }
+    const work = (await s.caller.tags.list()).find((t) => t.name === 'work');
+    if (!work) throw new Error('unreachable');
+
+    const first = await s.caller.entries.list({ tagId: work.id, limit: 2 });
+    const second = await s.caller.entries.list({
+      tagId: work.id,
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+    const third = await s.caller.entries.list({
+      tagId: work.id,
+      limit: 2,
+      cursor: second.nextCursor,
+    });
+
+    expect(first.items).toHaveLength(2);
+    expect(second.items).toHaveLength(2);
+    expect(third.items).toHaveLength(1);
+    expect(third.nextCursor).toBeNull();
   });
 });
 
@@ -210,8 +316,8 @@ describe('entries.delete + restore', () => {
     const deleted = await s.caller.entries.delete({ id: created.id });
     expect(deleted.id).toBe(created.id);
     expect(deleted.deletedAt).toBeGreaterThan(0);
-    const list = await s.caller.entries.list();
-    expect(list.find((e) => e.id === created.id)).toBeUndefined();
+    const { items } = await s.caller.entries.list();
+    expect(items.find((e) => e.id === created.id)).toBeUndefined();
   });
 
   test('list({trash:true}) returns only deleted entries', async () => {
@@ -221,8 +327,8 @@ describe('entries.delete + restore', () => {
 
     const live = await s.caller.entries.list();
     const trashed = await s.caller.entries.list({ trash: true });
-    expect(live.map((e) => e.id)).toEqual([a.id]);
-    expect(trashed.map((e) => e.id)).toEqual([b.id]);
+    expect(live.items.map((e) => e.id)).toEqual([a.id]);
+    expect(trashed.items.map((e) => e.id)).toEqual([b.id]);
   });
 
   test('restore puts the entry back in the active list', async () => {
@@ -230,8 +336,8 @@ describe('entries.delete + restore', () => {
     await s.caller.entries.delete({ id: created.id });
     const restored = await s.caller.entries.restore({ id: created.id });
     expect(restored.deletedAt).toBeNull();
-    const list = await s.caller.entries.list();
-    expect(list.map((e) => e.id)).toEqual([created.id]);
+    const { items } = await s.caller.entries.list();
+    expect(items.map((e) => e.id)).toEqual([created.id]);
   });
 
   test('delete is idempotent on already-deleted entry', async () => {
@@ -411,13 +517,14 @@ describe('entries.list filters', () => {
     if (!work) throw new Error('unreachable');
 
     const hits = await s.caller.entries.list({ tagId: work.id });
-    expect(hits).toHaveLength(1);
-    expect(hits[0]?.body).toContain('#work');
+    expect(hits.items).toHaveLength(1);
+    expect(hits.items[0]?.body).toContain('#work');
   });
 
   test('tagId returns empty when no entries link to the tag', async () => {
     const hits = await s.caller.entries.list({ tagId: 'nope' });
-    expect(hits).toEqual([]);
+    expect(hits.items).toEqual([]);
+    expect(hits.nextCursor).toBeNull();
   });
 
   test('from + to bound the createdAt window inclusively', async () => {
@@ -426,13 +533,13 @@ describe('entries.list filters', () => {
     await createAt('third', 3_000);
 
     const middle = await s.caller.entries.list({ from: 2_000, to: 2_000 });
-    expect(middle.map((e) => e.body)).toEqual(['second']);
+    expect(middle.items.map((e) => e.body)).toEqual(['second']);
 
     const lowerOpen = await s.caller.entries.list({ to: 2_000 });
-    expect(lowerOpen.map((e) => e.body).sort()).toEqual(['first', 'second']);
+    expect(lowerOpen.items.map((e) => e.body).sort()).toEqual(['first', 'second']);
 
     const upperOpen = await s.caller.entries.list({ from: 2_000 });
-    expect(upperOpen.map((e) => e.body).sort()).toEqual(['second', 'third']);
+    expect(upperOpen.items.map((e) => e.body).sort()).toEqual(['second', 'third']);
   });
 
   test('combines tagId + date range as AND', async () => {
@@ -443,7 +550,7 @@ describe('entries.list filters', () => {
     if (!work) throw new Error('unreachable');
 
     const hits = await s.caller.entries.list({ tagId: work.id, from: 500, to: 1_500 });
-    expect(hits.map((e) => e.id)).toEqual([a.id]);
+    expect(hits.items.map((e) => e.id)).toEqual([a.id]);
   });
 
   test('filters do not bleed into trash mode', async () => {
@@ -453,8 +560,8 @@ describe('entries.list filters', () => {
     if (!work) throw new Error('unreachable');
 
     const live = await s.caller.entries.list({ tagId: work.id });
-    expect(live).toEqual([]);
+    expect(live.items).toEqual([]);
     const trashed = await s.caller.entries.list({ trash: true, tagId: work.id });
-    expect(trashed.map((e) => e.id)).toEqual([a.id]);
+    expect(trashed.items.map((e) => e.id)).toEqual([a.id]);
   });
 });

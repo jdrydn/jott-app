@@ -302,11 +302,12 @@ Gated — each leaves a working, runnable binary.
 - Export embeds `/api/attachments/:id` URLs as `data:<mime>;base64,...` URIs (single-file `.md` invariant preserved). Import decodes, writes files, creates rows, and rewrites URLs in the persisted body.
 - Settings → System now surfaces the attachments dir (read-only).
 
-### M7 - Timeline pagination
-- The timeline view should list the last 100 entries
-- And paginate with cursor-based navigation
-  (https://orm.drizzle.team/docs/guides/cursor-based-pagination)
-- And "Read More" links to fetch the next "page" of results
+### M7 — Timeline pagination ✓ shipped 2026-05-16
+- `entries.list` returns `{ items, nextCursor }`; default page size 100 (max 200). Cursor is `{ ts, id }` where `ts` is `createdAt` (or `deletedAt` in trash mode) and `id` is the secondary tiebreaker for entries sharing a millisecond.
+- Stable ordering: `(orderColumn DESC, id DESC)`. Fetches `limit + 1` rows to detect more without a separate count query.
+- Frontend swapped to `useInfiniteQuery` with `getNextPageParam: last => last.nextCursor ?? undefined`; a "Read more →" button appears at the bottom of the timeline while `hasNextPage`.
+- Pagination is for the timeline (`list`) only — `search` remains a single FTS query capped at 50 results.
+- `scripts/seed-30d.ts` added for local demo: ~6 entries/day across the last 30 days, randomised between 8am–6pm, drawn from a small template/people/topic pool so tag chips render.
 
 ### M8 - Improved tagging
 - Tags should be stored in entry text as `{{ tag id=${Tag.id} }}`, but rendered correctly in the UI
@@ -491,3 +492,6 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-16 | Slash menu is a hand-rolled ProseMirror plugin (no `@tiptap/suggestion`)            | One item (`/image`) doesn't justify a dep; the menu is ~60 LOC and easy to extend later |
 | 2026-05-16 | `imageUpload` placeholder node is a React NodeView; not persisted to markdown        | Lets the dropzone live inline in the editor with state (idle/uploading/error); never written out, so it can't leak into bodies |
 | 2026-05-16 | Orphan attachments older than 24h GC'd at startup                                   | Bounded cleanup for uploads that were never claimed by an entry (e.g. composer dismissed) |
+| 2026-05-16 | Timeline pagination uses `(ts, id)` cursor with id as a deterministic tiebreaker    | ULIDs are time-sortable but two entries can share a `createdAt` ms; pairing with `id DESC` keeps page boundaries stable and avoids dropped/duplicated rows when paging |
+| 2026-05-16 | Fetch `limit + 1` to detect `hasMore` instead of a separate `COUNT(*)`              | One round-trip; the extra row is trimmed server-side. `COUNT` would scan the filtered set twice for no gain |
+| 2026-05-16 | Search stays unpaginated; pagination is timeline-only                               | Search results are already capped at 50 by FTS bm25 ranking; users skim, not scroll. Adding cursor here would complicate the bm25 ordering for no real UX win |

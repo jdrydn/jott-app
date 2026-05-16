@@ -21,29 +21,30 @@ export function EntryFeed({
   const debouncedQuery = useDebouncedValue(searchQuery.trim(), 200);
   const isSearching = debouncedQuery.length > 0 && !trash;
 
-  const list = trpc.entries.list.useQuery(
+  const list = trpc.entries.list.useInfiniteQuery(
     {
       trash,
       tagId: filters.tagId,
       from: filters.from,
       to: filters.to,
     },
-    { enabled: !isSearching },
+    {
+      enabled: !isSearching,
+      getNextPageParam: (last) => last.nextCursor ?? undefined,
+    },
   );
   const search = trpc.entries.search.useQuery({ q: debouncedQuery }, { enabled: isSearching });
 
-  const active = isSearching ? search : list;
-
-  if (active.isLoading) {
+  if (isSearching ? search.isLoading : list.isLoading) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
   }
-  if (active.error) {
-    return <p className="text-sm text-red-500 dark:text-red-400">Error: {active.error.message}</p>;
+  const error = isSearching ? search.error : list.error;
+  if (error) {
+    return <p className="text-sm text-red-500 dark:text-red-400">Error: {error.message}</p>;
   }
 
-  const data = active.data ?? [];
-
   if (isSearching) {
+    const data = search.data ?? [];
     if (data.length === 0) {
       return (
         <p className="text-sm italic text-gray-400 dark:text-gray-500">
@@ -65,6 +66,7 @@ export function EntryFeed({
     );
   }
 
+  const data = list.data?.pages.flatMap((p) => p.items) ?? [];
   const groups = groupByDay(data);
 
   if (trash && groups.every((g) => g.entries.length === 0)) {
@@ -90,6 +92,18 @@ export function EntryFeed({
           onSetTagFilter={onSetTagFilter}
         />
       ))}
+      {list.hasNextPage ? (
+        <div className="flex justify-center items-center pt-2">
+          <button
+            type="button"
+            onClick={() => list.fetchNextPage()}
+            disabled={list.isFetchingNextPage}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300 dark:hover:text-slate-100"
+          >
+            {list.isFetchingNextPage ? 'Loading…' : 'Read more →'}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
