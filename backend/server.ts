@@ -1,6 +1,7 @@
 import { VERSION } from '@shared/version';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
+import type { ClaudeDetection } from './ai/claude';
 import type { Db } from './db/client';
 import { assets, indexHtml } from './staticAssets.generated';
 import { makeCreateContext } from './trpc/context';
@@ -11,13 +12,18 @@ const TRPC_PREFIX = '/api/trpc';
 export type AppDeps = {
   db: Db;
   dbPath: string;
+  claude: ClaudeDetection;
 };
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.get('/healthz', (c) => c.json({ ok: true, version: VERSION }));
 
-  const createContext = makeCreateContext({ db: deps.db, dbPath: deps.dbPath });
+  const createContext = makeCreateContext({
+    db: deps.db,
+    dbPath: deps.dbPath,
+    claude: deps.claude,
+  });
   app.all(`${TRPC_PREFIX}/*`, (c) =>
     fetchRequestHandler({
       endpoint: TRPC_PREFIX,

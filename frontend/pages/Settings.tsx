@@ -1,6 +1,7 @@
 import type { ProfileTheme } from '@backend/db/schema';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { DriverIcon } from '../components/DriverIcon';
 import { useToast } from '../components/Toast';
 import { trpc } from '../trpc';
 
@@ -10,11 +11,14 @@ const THEME_OPTIONS: ReadonlyArray<{ value: ProfileTheme; label: string; hint: s
   { value: 'dark', label: 'Dark', hint: 'Always dark' },
 ];
 
+const DRIVER_OPTIONS = [{ value: 'claude', label: 'Claude Code' }] as const;
+
 export function Settings() {
   const [, setLocation] = useLocation();
   const profile = trpc.profile.get.useQuery();
   const settings = trpc.settings.getAll.useQuery();
   const system = trpc.system.info.useQuery();
+  const aiStatus = trpc.ai.status.useQuery();
   const utils = trpc.useUtils();
   const toast = useToast();
 
@@ -23,7 +27,9 @@ export function Settings() {
 
   const [name, setName] = useState('');
   const [theme, setTheme] = useState<ProfileTheme>('system');
-  const [claudeBin, setClaudeBin] = useState('');
+  const [aiDriver, setAiDriver] = useState('claude');
+  const [claudeConfigDir, setClaudeConfigDir] = useState('');
+  const [claudeModel, setClaudeModel] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -35,11 +41,14 @@ export function Settings() {
 
   useEffect(() => {
     if (settings.data) {
-      setClaudeBin(settings.data['claude.binary'] ?? '');
+      setAiDriver(settings.data['ai.driver']);
+      setClaudeConfigDir(settings.data['ai.claude.config-dir']);
+      setClaudeModel(settings.data['ai.claude.model']);
     }
   }, [settings.data]);
 
-  const isLoading = profile.isLoading || settings.isLoading || system.isLoading;
+  const isLoading =
+    profile.isLoading || settings.isLoading || system.isLoading || aiStatus.isLoading;
   const isSaving = upsertProfile.isPending || setSetting.isPending;
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -48,8 +57,17 @@ export function Settings() {
     if (!trimmedName) return;
     try {
       await upsertProfile.mutateAsync({ name: trimmedName, theme });
-      await setSetting.mutateAsync({ key: 'claude.binary', value: claudeBin.trim() });
-      await Promise.all([utils.profile.get.invalidate(), utils.settings.getAll.invalidate()]);
+      await setSetting.mutateAsync({ key: 'ai.driver', value: aiDriver.trim() });
+      await setSetting.mutateAsync({
+        key: 'ai.claude.config-dir',
+        value: claudeConfigDir.trim(),
+      });
+      await setSetting.mutateAsync({ key: 'ai.claude.model', value: claudeModel.trim() });
+      await Promise.all([
+        utils.profile.get.invalidate(),
+        utils.settings.getAll.invalidate(),
+        utils.ai.status.invalidate(),
+      ]);
       toast.push('Settings saved');
     } catch (err) {
       toast.push((err as Error).message);
@@ -127,7 +145,60 @@ export function Settings() {
             </Field>
           </Section>
 
-          <Section title="System" subtitle="Where things live and how AI talks to your machine.">
+          <Section title="AI" subtitle="How jott reaches Claude (or another driver later).">
+            <Field
+              id="aiDriver"
+              label="Driver"
+              hint="Which AI backend to use. Only Claude for now."
+            >
+              <select
+                id="aiDriver"
+                value={aiDriver}
+                onChange={(e) => setAiDriver(e.target.value)}
+                className={inputClasses}
+              >
+                {DRIVER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <AiStatusBanner status={aiStatus.data} driver={aiStatus.data?.driver} />
+
+            <Field
+              id="claudeConfigDir"
+              label="Claude config dir"
+              hint="Directory holding Claude Code's session/credentials. Defaults to ~/.claude."
+            >
+              <input
+                id="claudeConfigDir"
+                type="text"
+                value={claudeConfigDir}
+                onChange={(e) => setClaudeConfigDir(e.target.value)}
+                placeholder="~/.claude"
+                className={`${inputClasses} font-mono text-sm`}
+              />
+            </Field>
+
+            <Field
+              id="claudeModel"
+              label="Claude model"
+              hint="Passed to claude --model. e.g. sonnet, opus, haiku."
+            >
+              <input
+                id="claudeModel"
+                type="text"
+                value={claudeModel}
+                onChange={(e) => setClaudeModel(e.target.value)}
+                placeholder="sonnet"
+                className={`${inputClasses} font-mono text-sm`}
+              />
+            </Field>
+          </Section>
+
+          <Section title="System" subtitle="Where the journal lives on disk.">
             <Field
               id="dbPath"
               label="Database path"
@@ -149,21 +220,6 @@ export function Settings() {
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-            </Field>
-
-            <Field
-              id="claude"
-              label="Claude binary"
-              hint="Path to the claude CLI. Defaults to 'claude' on PATH. Used by AI features."
-            >
-              <input
-                id="claude"
-                type="text"
-                value={claudeBin}
-                onChange={(e) => setClaudeBin(e.target.value)}
-                placeholder="claude"
-                className={`${inputClasses} font-mono text-sm`}
-              />
             </Field>
 
             <p className="text-xs text-gray-500 dark:text-gray-500">jott v{system.data?.version}</p>
@@ -211,6 +267,37 @@ function Section({
       </header>
       <div className="space-y-5">{children}</div>
     </section>
+  );
+}
+
+function AiStatusBanner({
+  status,
+  driver,
+}: {
+  status:
+    | { enabled: boolean; reason?: string; binaryPath: string | null; version: string | null }
+    | undefined;
+  driver: string | undefined;
+}) {
+  if (!status) return null;
+  if (status.enabled) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
+        <DriverIcon driver={driver} />
+        <span>
+          Detected <code className="font-mono">{status.binaryPath}</code>
+          {status.version ? <> · {status.version}</> : null}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200">
+      <span className="opacity-60">
+        <DriverIcon driver={driver} />
+      </span>
+      <span>AI features disabled — {status.reason ?? 'driver unavailable'}.</span>
+    </div>
   );
 }
 

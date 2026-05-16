@@ -203,17 +203,20 @@ Encryption is deferred — relying on OS disk encryption (FileVault / BitLocker 
 
 ## 7. AI integration (Claude shell-out)
 
-- The server shells out to the `claude` binary when the UI calls an AI tRPC procedure.
-- **Startup check:** on boot, the server probes for `claude` on PATH. If not found, AI procedures return a "disabled" status (queryable via `ai.status`); UI shows AI controls as greyed-out with an explanatory tooltip.
-- **tRPC procedures (v1) — `ai.*` router:**
-  - `ai.status`     — query: is `claude` available?
-  - `ai.summarise`  — mutation: date-window TL;DR
-  - `ai.reflect`    — mutation: themes/patterns
-  - `ai.ask`        — mutation: Q&A over a slice
-- **Config (stored in `settings` table):**
-  - `claude.binary` — defaults to `claude` on PATH
-  - `claude.model` — optional pass-through
-  - `claude.maxEntries` — token-cost safety cap
+- The server shells out to the `claude` binary (Claude Code) when the UI calls an AI tRPC procedure.
+- **Startup check:** on boot, the server probes for `claude` on `PATH` via `Bun.which('claude')` and runs `claude --version` to capture the version string. The result is threaded through the tRPC context (`ctx.claude.{available, binaryPath, version}`). If `claude` isn't found, AI procedures throw `PRECONDITION_FAILED`; the UI greys out controls and links to settings.
+- **Driver pattern:** the active driver is selected via the `ai.driver` setting, defaulting to `claude`. Driver-specific config sits under `ai.<driver>.*`. Only `claude` is implemented; an unknown driver value cleanly disables AI with a reason.
+- **tRPC procedures — `ai.*` router:**
+  - `ai.status`     — query: returns `{ driver, enabled, reason?, model, binaryPath, version }`
+  - `ai.summarise(input: { from?, to?, tagId? })` — mutation: date-window TL;DR
+  - `ai.reflect(input: { from?, to?, tagId? })` — mutation: themes/patterns
+  - `ai.ask(input: { q, from?, to?, tagId? })`     — mutation: Q&A over a slice
+- All three mutations share a `fetchEntrySlice` helper that filters by `from`/`to`/`tagId`, drops soft-deleted rows, takes the **most-recent 100** entries (hard-coded `ENTRY_CAP`), then sorts oldest-first for the prompt.
+- **Settings registry (`SETTING_DEFAULTS`):** an object of `key → default`, so new keys auto-merge into `getAll`'s response. The UI never sees `undefined` for a known setting.
+  - `ai.driver` — defaults to `claude`
+  - `ai.claude.config-dir` — defaults to `$HOME/.claude`; passed to the spawned process as `CLAUDE_CONFIG_DIR`
+  - `ai.claude.model` — defaults to `sonnet`; passed as `--model`
+- **Shell-out:** `claude --print --model <model>` invoked via `Bun.spawn`, prompt piped to stdin, response read from stdout. 180-second timeout via AbortController. stderr tail surfaced on non-zero exit.
 - **Privacy:** AI features send journal content to Anthropic via `claude`. Opt-in by virtue of being a separate UI button. Default capture/read flow stays 100% local. UI shows a one-liner near AI controls explaining this.
 
 ---
@@ -268,11 +271,16 @@ Gated — each leaves a working, runnable binary.
 - `profile` (singleton) + `settings` (key/value) tables; `system.info` exposes db path + version
 - Dark mode visual pass: class-based `dark:` variants applied across all components, with system-pref detection
 
-### M4 — AI integration
-- tRPC `ai.*` router: `status`, `summarise`, `reflect`, `ask`
-- UI buttons in the list/detail views, gated by `ai.status`
-- Startup detection of `claude` on PATH; graceful disable when missing
-- Token-cap safety
+### M4 — AI integration ✓ shipped 2026-05-15
+- Driver pattern: `ai.driver` setting selects backend; only `claude` implemented. Driver-specific config under `ai.<driver>.*`
+- Settings registry refactored to a defaults-object (`SETTING_DEFAULTS`); `getAll` always returns effective values
+- Startup detection of `claude` on PATH (`Bun.which`) + version probe; threaded through tRPC context
+- tRPC `ai.*` router: `status` query, `summarise` / `reflect` / `ask` mutations
+- Shared entry-slice helper (`from`/`to`/`tagId`, hard cap 100, oldest-first for prompts)
+- Prompt builder per task with profile-name personalisation
+- Shell-out via `Bun.spawn` (`claude --print --model <model>` + `CLAUDE_CONFIG_DIR` env), 180s timeout
+- Sidebar AI block on `/timeline` with three buttons; modal panel for action picking, current-window summary, question input (ask), result + copy
+- Settings page surfaces driver / config dir / model with a live "AI status" banner
 
 ### M5 — Durability
 - Export to markdown bundle (UI button)
@@ -443,3 +451,9 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-15 | Settings split: `profile` (singleton) for personalisation, `settings` (k/v) for app config | Theme + name are per-user identity; `claude.binary` etc. are app-wide config — different shapes deserve different tables |
 | 2026-05-15 | `db.path` is read-only in the UI (set at startup via `--db`/`JOTTAPP_DB`) | Changing the path mid-session would orphan the open DB handle; the setting screen surfaces it but doesn't pretend it's editable |
 | 2026-05-15 | Dark mode via class-based `dark:` variants, applied to `<html>` from React | Tailwind v4 `@custom-variant dark (&:where(.dark, .dark *))`; `useApplyTheme` listens to `prefers-color-scheme` for `system` |
+| 2026-05-15 | Settings registry shape: object `{ key: defaultValue }`, not array of valid keys  | New keys auto-merge into `getAll`; `getAll` always returns a fully-populated map (no nullable values for known keys) |
+| 2026-05-15 | Driver pattern under `ai.driver` (default `claude`); per-driver config under `ai.<driver>.*` | Replaces the older `claude.binary` / `claude.model` / `claude.maxEntries` keys; future drivers slot in without churning the AI procedures |
+| 2026-05-15 | Stop storing a `claude.binary` path; always use `claude` from `PATH`               | Detection via `Bun.which('claude')` at boot is enough — keeps settings to user-meaningful knobs (config dir, model) |
+| 2026-05-15 | Pass `CLAUDE_CONFIG_DIR` env (not a CLI flag) to scope the claude session          | Lets users point at a different account/profile without hard-coupling to specific CLI flags that may change |
+| 2026-05-15 | Hard-code entry cap to 100 (no `ai.maxEntries` setting yet)                        | Avoids token blow-up; surface as a setting once a user actually wants to tune it |
+| 2026-05-15 | AI procedures throw `PRECONDITION_FAILED` when driver/binary unavailable           | Single high-level error — UI just renders the message; matches CLAUDE.md's "let errors bubble" |
