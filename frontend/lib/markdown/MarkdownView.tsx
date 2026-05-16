@@ -35,6 +35,18 @@ function BlockView({ node, links, onTagClick }: { node: PMBlockNode } & ViewProp
       );
     case 'horizontalRule':
       return <hr className="my-3 border-t border-gray-200 dark:border-gray-800" />;
+    case 'image': {
+      const src = (node.attrs?.src as string | undefined) ?? '';
+      const alt = (node.attrs?.alt as string | undefined) ?? '';
+      return (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          className="my-2 max-h-96 rounded border border-gray-200 dark:border-gray-800"
+        />
+      );
+    }
     case 'codeBlock': {
       const text = ((node.content ?? []) as PMInlineNode[])
         .map((c) => (c.type === 'text' ? c.text : ''))

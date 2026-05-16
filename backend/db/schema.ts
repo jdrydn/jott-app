@@ -82,3 +82,23 @@ export const settings = sqliteTable('settings', {
 
 export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
+
+export const attachments = sqliteTable(
+  'attachments',
+  {
+    id: text('id').primaryKey().notNull(),
+    entryId: text('entry_id').references(() => entries.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['image'] }).notNull(),
+    filename: text('filename').notNull(),
+    mime: text('mime').notNull(),
+    bytes: integer('bytes').notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [index('attachments_entry_id_idx').on(t.entryId)],
+);
+
+export type Attachment = typeof attachments.$inferSelect;
+export type NewAttachment = typeof attachments.$inferInsert;
+export type AttachmentKind = Attachment['kind'];

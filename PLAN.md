@@ -292,12 +292,15 @@ Gated — each leaves a working, runnable binary.
 - Raw `Database` threaded through tRPC context (needed for `VACUUM INTO`).
 - Settings page gains a "Data" section: export, import (file picker), backup-on-quit toggle, backup-dir input, "Backup now" button.
 
-### M6 — Image attachments
-- `attachments` table FK'd to entries: `id`, `entryId`, `kind: 'image'`, `path`, `mime`, `width`, `height`, `createdAt`
-- Files stored on disk under the app data dir (not in SQLite) — keeps DB lean
-- TipTap paste + drag-drop into the editor
-- Markdown export embeds images alongside (relative paths or `data:` URIs — TBD at the time)
-- Future-proofed for non-image kinds (voice, files) without further schema work
+### M6 — Image attachments ✓ shipped 2026-05-16
+- `attachments` table FK'd to entries (`entry_id` nullable for drafts): `id`, `entryId`, `kind: 'image'` (enum, future-proofed), `filename`, `mime`, `bytes`, `width`, `height`, `createdAt`. Files live on disk under `<dbPath dirname>/attachments/<id>.<ext>` — DB stays lean.
+- Hono routes `POST /api/attachments` (multipart, 10 MB cap, image-MIME allowlist) + `GET /api/attachments/:id` (id-addressable, immutable cache); tRPC stays for everything else.
+- `backend/attachments/reconcile.ts` mirrors the tag reconciler — body scan binds orphan rows to the entry on create/update and unlinks (deleting row + file) anything no longer referenced.
+- Startup orphan sweep: rows with `entry_id IS NULL AND created_at < now - 24h` are GC'd (file + row) before the server binds.
+- TipTap editor extended with `@tiptap/extension-image` (block-only), a `/`-triggered slash menu (hand-rolled PM plugin), and an `imageUpload` placeholder node (React NodeView dropzone). Paste + drag/drop also upload + insert.
+- Markdown image round-trip: `paragraph-with-only-image` promotes to a block-level PM `image` node; inline images split the paragraph.
+- Export embeds `/api/attachments/:id` URLs as `data:<mime>;base64,...` URIs (single-file `.md` invariant preserved). Import decodes, writes files, creates rows, and rewrites URLs in the persisted body.
+- Settings → System now surfaces the attachments dir (read-only).
 
 ### M7 — Release prep
 - Cross-compile binaries (macOS arm64/x64, Linux x64/arm64, Windows x64)
@@ -468,3 +471,11 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-16 | Backup via SQLite `VACUUM INTO` (not file copy)                                    | Produces a consistent, optimized snapshot even with WAL pending writes — no need to checkpoint or close the DB |
 | 2026-05-16 | Raw `Database` handle threaded through tRPC context                                | Needed for `VACUUM INTO`; explicit dep beats reaching into Drizzle's `$client` private surface |
 | 2026-05-16 | Backup-on-quit failures are logged, not fatal                                      | Shutdown should always close the DB cleanly; a failed snapshot shouldn't leave the process hanging |
+| 2026-05-16 | Attachments stored on disk as `<dbPath dirname>/attachments/<id>.<ext>`; DB row carries metadata only | Keeps SQLite small and backups fast; id-addressable filenames avoid collisions and let `GET` set `immutable` caching |
+| 2026-05-16 | Upload via `POST /api/attachments` (multipart), not tRPC                            | Binary payloads belong on a dedicated route; tRPC stays for typed JSON. 10 MB cap + image-MIME allowlist enforced server-side |
+| 2026-05-16 | `attachments.entry_id` is nullable; reconciliation binds rows on entry save        | Lets the editor upload first (paste/drop/slash command) without forcing a draft entry, and lets the body remain the source of truth |
+| 2026-05-16 | Markdown export embeds images as `data:` URIs (no sidecar files, no zip)            | Preserves the M5 "one .md file is the export" contract; trade file size for portability |
+| 2026-05-16 | Import decodes `data:` URIs into fresh attachment rows + files                      | Round-trip works on a clean db; new IDs avoid clashing with any existing attachments |
+| 2026-05-16 | Slash menu is a hand-rolled ProseMirror plugin (no `@tiptap/suggestion`)            | One item (`/image`) doesn't justify a dep; the menu is ~60 LOC and easy to extend later |
+| 2026-05-16 | `imageUpload` placeholder node is a React NodeView; not persisted to markdown        | Lets the dropzone live inline in the editor with state (idle/uploading/error); never written out, so it can't leak into bodies |
+| 2026-05-16 | Orphan attachments older than 24h GC'd at startup                                   | Bounded cleanup for uploads that were never claimed by an entry (e.g. composer dismissed) |

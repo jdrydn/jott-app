@@ -3,6 +3,7 @@ import type { PMBlockNode, PMDoc, PMInlineNode, PMMark, PMNode } from './types';
 export function docToMarkdown(doc: PMDoc): string {
   const out: string[] = [];
   for (const block of doc.content) {
+    if (block.type === 'imageUpload') continue;
     const md = blockToMarkdown(block);
     if (md.length > 0) out.push(md);
   }
@@ -15,6 +16,14 @@ function blockToMarkdown(node: PMBlockNode): string {
       return inlineToMarkdown((node.content ?? []) as PMInlineNode[]);
     case 'horizontalRule':
       return '---';
+    case 'image': {
+      const src = (node.attrs?.src as string | undefined) ?? '';
+      const alt = (node.attrs?.alt as string | undefined) ?? '';
+      return `![${alt}](${src})`;
+    }
+    case 'imageUpload':
+      // Placeholder node — never persisted to markdown.
+      return '';
     case 'codeBlock': {
       const lang = (node.attrs?.language as string | null | undefined) ?? '';
       const text = (node.content ?? []).map(textOf).join('');

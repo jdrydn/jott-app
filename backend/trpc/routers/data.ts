@@ -1,9 +1,17 @@
 import { TRPCError } from '@trpc/server';
 import { asc, inArray, isNull } from 'drizzle-orm';
+import { ulid } from 'ulid';
 import { z } from 'zod';
+import { reconcileEntryAttachments } from '../../attachments/reconcile';
+import {
+  decodeDataUris,
+  extFromMime,
+  readAttachmentAsDataUri,
+  writeAttachment,
+} from '../../data/attachments';
 import { BackupNotSupportedError, backupDb, defaultBackupDir } from '../../data/backup';
 import { ImportParseError, parseEntries, serializeEntries } from '../../data/markdown';
-import { entries, settings } from '../../db/schema';
+import { attachments, entries, settings } from '../../db/schema';
 import { reconcileEntryTags } from '../../tags/reconcile';
 import type { Context } from '../context';
 import { publicProcedure, router } from '../trpc';
@@ -58,7 +66,37 @@ export const dataRouter = router({
       .orderBy(asc(entries.createdAt))
       .all();
     const now = Date.now();
-    const text = serializeEntries(rows, now);
+
+    const linked = rows.length
+      ? ctx.db
+          .select({
+            id: attachments.id,
+            entryId: attachments.entryId,
+            filename: attachments.filename,
+            mime: attachments.mime,
+          })
+          .from(attachments)
+          .where(
+            inArray(
+              attachments.entryId,
+              rows.map((r) => r.id),
+            ),
+          )
+          .all()
+      : [];
+    const byId = new Map(linked.map((a) => [a.id, a]));
+
+    const embedded = rows.map((r) => {
+      if (!r.body.includes('/api/attachments/')) return r;
+      const body = r.body.replace(/\/api\/attachments\/([0-9A-HJKMNP-TV-Z]{26})/g, (orig, id) => {
+        const att = byId.get(id);
+        if (!att) return orig;
+        return readAttachmentAsDataUri(ctx.attachmentsDir, att.filename, att.mime);
+      });
+      return { ...r, body };
+    });
+
+    const text = serializeEntries(embedded, now);
     return { filename: exportFilename(new Date(now)), text, count: rows.length };
   }),
 
@@ -100,15 +138,43 @@ export const dataRouter = router({
           skipped++;
           continue;
         }
+        const decoded = decodeDataUris(e.body);
+        let body = e.body;
+        const newAttachments: Array<{ id: string; mime: string; bytes: number }> = [];
+        for (const d of decoded) {
+          const id = ulid();
+          const ext = extFromMime(d.mime);
+          writeAttachment(ctx.attachmentsDir, id, ext, d.bytes);
+          body = body.replace(d.match, `/api/attachments/${id}`);
+          newAttachments.push({ id, mime: d.mime, bytes: d.bytes.byteLength });
+        }
+
         tx.insert(entries)
           .values({
             id: e.id,
-            body: e.body,
+            body,
             createdAt: e.createdAt,
             updatedAt: e.updatedAt,
           })
           .run();
-        reconcileEntryTags(tx, e.id, e.body, e.updatedAt);
+        for (const a of newAttachments) {
+          tx.insert(attachments)
+            .values({
+              id: a.id,
+              entryId: e.id,
+              kind: 'image',
+              filename: `${a.id}.${extFromMime(a.mime)}`,
+              mime: a.mime,
+              bytes: a.bytes,
+              createdAt: e.updatedAt,
+            })
+            .run();
+        }
+        reconcileEntryTags(tx, e.id, body, e.updatedAt);
+        // Run attachments reconcile to keep counts consistent (also covers any
+        // pre-existing /api/attachments/<id> URLs in the import that map to
+        // attachments imported above).
+        reconcileEntryAttachments(tx, ctx.attachmentsDir, e.id, body);
         imported++;
       }
     });

@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzl
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
+import { reconcileEntryAttachments } from '../../attachments/reconcile';
 import type { Db } from '../../db/client';
 import { type Entry, entries, entryTags, tags } from '../../db/schema';
 import { reconcileEntryTags } from '../../tags/reconcile';
@@ -166,6 +167,7 @@ export const entriesRouter = router({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'insert returned no row' });
       }
       reconcileEntryTags(tx, inserted.id, inserted.body, now);
+      reconcileEntryAttachments(tx, ctx.attachmentsDir, inserted.id, inserted.body);
       return inserted;
     });
   }),
@@ -190,6 +192,7 @@ export const entriesRouter = router({
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'update returned no row' });
       }
       reconcileEntryTags(tx, updated.id, updated.body, now);
+      reconcileEntryAttachments(tx, ctx.attachmentsDir, updated.id, updated.body);
       return updated;
     });
   }),

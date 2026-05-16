@@ -4,6 +4,7 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
 import type { ClaudeDetection } from './ai/claude';
 import type { Db } from './db/client';
+import { mountAttachmentsRoutes } from './http/attachments';
 import { assets, indexHtml } from './staticAssets.generated';
 import { makeCreateContext } from './trpc/context';
 import { appRouter } from './trpc/router';
@@ -14,6 +15,7 @@ export type AppDeps = {
   db: Db;
   raw: Database;
   dbPath: string;
+  attachmentsDir: string;
   claude: ClaudeDetection;
 };
 
@@ -25,6 +27,7 @@ export function createApp(deps: AppDeps): Hono {
     db: deps.db,
     raw: deps.raw,
     dbPath: deps.dbPath,
+    attachmentsDir: deps.attachmentsDir,
     claude: deps.claude,
   });
   app.all(`${TRPC_PREFIX}/*`, (c) =>
@@ -35,6 +38,8 @@ export function createApp(deps: AppDeps): Hono {
       createContext,
     }),
   );
+
+  mountAttachmentsRoutes(app, { db: deps.db, dir: deps.attachmentsDir });
 
   if (assets.size > 0) mountStatic(app);
 
@@ -69,11 +74,17 @@ export class PortInUseError extends Error {
   }
 }
 
+// Bun.serve defaults to a 10s idleTimeout which trips on multipart uploads
+// (e.g. a 10 MB image attachment) over slower browsers/disks. 120s is enough
+// headroom while still bounding stuck connections.
+const SERVER_IDLE_TIMEOUT_SECONDS = 120;
+
 export function serveApp(opts: { port: number; app: Hono }): ServerHandle {
   try {
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: opts.port,
+      idleTimeout: SERVER_IDLE_TIMEOUT_SECONDS,
       fetch: opts.app.fetch,
     });
     const port = server.port ?? opts.port;
