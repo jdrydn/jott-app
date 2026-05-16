@@ -1,6 +1,7 @@
 import { VERSION } from '@shared/version';
 import { detectClaude } from './ai/claude';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
+import { defaultAttachmentsDir, sweepOrphanAttachments } from './data/attachments';
 import { backupDb, readBackupOnQuitSettings } from './data/backup';
 import { openDb } from './db/client';
 import { seedDemoData } from './db/seed';
@@ -34,8 +35,20 @@ function main(): void {
     }
   }
 
+  const attachmentsDir = defaultAttachmentsDir(opts.dbPath);
+  const sweptOrphans = sweepOrphanAttachments(dbHandle.raw, attachmentsDir);
+  if (sweptOrphans > 0) {
+    process.stdout.write(`cleaned ${sweptOrphans} orphan attachment(s)\n`);
+  }
+
   const claude = detectClaude();
-  const app = createApp({ db: dbHandle.db, raw: dbHandle.raw, dbPath: opts.dbPath, claude });
+  const app = createApp({
+    db: dbHandle.db,
+    raw: dbHandle.raw,
+    dbPath: opts.dbPath,
+    attachmentsDir,
+    claude,
+  });
 
   try {
     const handle = serveApp({ port: opts.port, app });

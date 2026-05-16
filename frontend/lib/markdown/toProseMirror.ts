@@ -22,9 +22,45 @@ export function markdownToDoc(md: string): PMDoc {
 function tokensToBlocks(tokens: AnyToken[]): PMBlockNode[] {
   const out: PMBlockNode[] = [];
   for (const t of tokens) {
+    if (t.type === 'paragraph' || t.type === 'heading') {
+      for (const block of paragraphToBlocks(t.tokens ?? [])) out.push(block);
+      continue;
+    }
     const node = tokenToBlock(t);
     if (node) out.push(node);
   }
+  return out;
+}
+
+// Splits a paragraph's inline tokens around any image tokens so each image
+// becomes its own block-level node (matching the editor's block-only image
+// extension). Text on either side of an image stays in its own paragraph.
+function paragraphToBlocks(tokens: AnyToken[]): PMBlockNode[] {
+  const out: PMBlockNode[] = [];
+  let buf: AnyToken[] = [];
+  const flush = () => {
+    if (buf.length === 0) return;
+    const inline = inlineTokens(buf);
+    if (inline.length > 0) out.push({ type: 'paragraph', content: inline });
+    buf = [];
+  };
+  for (const tk of tokens) {
+    if (tk.type === 'image') {
+      flush();
+      out.push({
+        type: 'image',
+        attrs: {
+          src: tk.href ?? '',
+          alt: tk.text ?? null,
+          title: (tk as { title?: string }).title ?? null,
+        },
+      });
+    } else {
+      buf.push(tk);
+    }
+  }
+  flush();
+  if (out.length === 0) out.push({ type: 'paragraph', content: [] });
   return out;
 }
 
@@ -134,6 +170,10 @@ function pushInline(out: PMNode[], tk: AnyToken, marks: PMMark[]): void {
     }
     case 'br':
       out.push({ type: 'hardBreak' });
+      return;
+    case 'image':
+      // Images are promoted to block-level in paragraphToBlocks; an image that
+      // slips through here (e.g. inside a list item) is silently dropped.
       return;
     case 'html':
       if (tk.text) out.push(textNode(tk.text, marks));

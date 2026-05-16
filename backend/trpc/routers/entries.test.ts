@@ -1,10 +1,15 @@
 import { Database } from 'bun:sqlite';
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { ulid } from 'ulid';
+import { writeAttachment } from '../../data/attachments';
 import { migrate } from '../../db/migrate';
 import * as schema from '../../db/schema';
-import { entryTags, tags } from '../../db/schema';
+import { attachments, entryTags, tags } from '../../db/schema';
 import { appRouter } from '../router';
 import { createCallerFactory } from '../trpc';
 
@@ -23,6 +28,7 @@ function setup(): Setup {
     db,
     raw,
     dbPath: ':memory:',
+    attachmentsDir: '/tmp/jottapp-test-attachments',
     claude: { available: false, binaryPath: null, version: null },
   });
   return { caller, raw };
@@ -326,6 +332,63 @@ describe('entries.search', () => {
     await s.caller.entries.create({ body: 'something' });
     const hits = await s.caller.entries.search({ q: '!!!' });
     expect(hits).toEqual([]);
+  });
+});
+
+describe('entries + attachments reconciliation', () => {
+  let raw: Database;
+  let dir: string;
+  let caller: ReturnType<typeof createCaller>;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'jott-entry-att-'));
+    raw = new Database(':memory:');
+    raw.exec('PRAGMA foreign_keys = ON');
+    migrate(raw);
+    const db = drizzle(raw, { schema });
+    caller = createCaller({
+      db,
+      raw,
+      dbPath: ':memory:',
+      attachmentsDir: dir,
+      claude: { available: false, binaryPath: null, version: null },
+    });
+  });
+  afterEach(() => {
+    raw.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function seedOrphan(id: string): void {
+    writeAttachment(dir, id, 'png', new Uint8Array([1, 2, 3]));
+    raw.run(
+      "INSERT INTO attachments (id, entry_id, kind, filename, mime, bytes, created_at) VALUES (?, NULL, 'image', ?, 'image/png', 3, ?)",
+      [id, `${id}.png`, Date.now()],
+    );
+  }
+
+  test('create binds referenced orphan attachments to the new entry', async () => {
+    const aid = ulid();
+    seedOrphan(aid);
+    const entry = await caller.entries.create({
+      body: `look ![](/api/attachments/${aid})`,
+    });
+    const db = drizzle(raw, { schema });
+    const row = db.select().from(attachments).all()[0];
+    expect(row?.entryId).toBe(entry.id);
+  });
+
+  test('update removing an image deletes its row + file', async () => {
+    const aid = ulid();
+    seedOrphan(aid);
+    const entry = await caller.entries.create({
+      body: `keep ![](/api/attachments/${aid})`,
+    });
+    expect(existsSync(join(dir, `${aid}.png`))).toBe(true);
+    await caller.entries.update({ id: entry.id, body: 'keep' });
+    const db = drizzle(raw, { schema });
+    expect(db.select().from(attachments).all()).toHaveLength(0);
+    expect(existsSync(join(dir, `${aid}.png`))).toBe(false);
   });
 });
 

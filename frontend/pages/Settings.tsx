@@ -384,6 +384,20 @@ export function Settings() {
               </div>
             </Field>
 
+            <Field
+              id="attachmentsDir"
+              label="Attachments directory"
+              hint="Sibling of the database file. Image bytes live here, one file per attachment."
+            >
+              <input
+                id="attachmentsDir"
+                type="text"
+                readOnly
+                value={system.data?.attachmentsDir ?? ''}
+                className={`${inputClasses} font-mono text-sm text-gray-600 dark:text-gray-400`}
+              />
+            </Field>
+
             <p className="text-xs text-gray-500 dark:text-gray-500">jott v{system.data?.version}</p>
           </Section>
 

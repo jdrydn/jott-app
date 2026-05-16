@@ -17,15 +17,17 @@ function setup(dbPath: string) {
     db,
     raw,
     dbPath,
+    attachmentsDir: '/tmp/jottapp-test-attachments',
     claude: { available: false, binaryPath: null, version: null },
   });
 }
 
 describe('system.info', () => {
-  test('returns version + dbPath from context', async () => {
+  test('returns version + dbPath + attachmentsDir from context', async () => {
     const caller = setup('/tmp/jott.db');
     const info = await caller.system.info();
     expect(info.version).toBe(VERSION);
     expect(info.dbPath).toBe('/tmp/jott.db');
+    expect(info.attachmentsDir).toBe('/tmp/jottapp-test-attachments');
   });
 });

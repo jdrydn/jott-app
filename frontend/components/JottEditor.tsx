@@ -1,5 +1,7 @@
 import type { TagWithStats } from '@backend/trpc/routers/tags';
 import type { TagType } from '@shared/tags';
+import type { Editor } from '@tiptap/core';
+import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
@@ -7,10 +9,26 @@ import TaskList from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { uploadImage } from '../lib/editor/imageUpload';
+import { ImageUploadNode } from '../lib/editor/imageUploadNode';
+import { SlashMenu } from '../lib/editor/slashMenu';
 import { TagDecorations, type TagResolver } from '../lib/editor/tagDecorations';
 import { docToMarkdown } from '../lib/markdown/toMarkdown';
 import { markdownToDoc } from '../lib/markdown/toProseMirror';
 import { trpc } from '../trpc';
+
+function insertImageAt(editor: Editor, pos: number, src: string, alt: string): void {
+  editor.chain().focus().insertContentAt(pos, { type: 'image', attrs: { src, alt } }).run();
+}
+
+async function uploadAndInsert(editor: Editor, file: File, pos: number): Promise<void> {
+  try {
+    const result = await uploadImage(file);
+    insertImageAt(editor, pos, result.url, file.name);
+  } catch (err) {
+    console.error('image upload failed', err);
+  }
+}
 
 export type JottEditorHandle = {
   focus: () => void;
@@ -122,8 +140,22 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
         Link.configure({ openOnClick: false, autolink: true }),
         TaskList,
         TaskItem.configure({ nested: false }),
+        Image.configure({ inline: false, allowBase64: false }),
+        ImageUploadNode,
         Placeholder.configure({ placeholder }),
         TagDecorations.configure({ resolveTag }),
+        SlashMenu.configure({
+          commands: [
+            {
+              id: 'image',
+              label: 'Image',
+              hint: 'Drop or pick a file',
+              run: (ed, range) => {
+                ed.chain().focus().insertContentAt(range, { type: 'imageUpload' }).run();
+              },
+            },
+          ],
+        }),
       ],
       [placeholder, resolveTag],
     ),
@@ -144,6 +176,31 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
           return true;
         }
         return false;
+      },
+      handlePaste(view, event) {
+        const files = Array.from(event.clipboardData?.files ?? []).filter((f) =>
+          f.type.startsWith('image/'),
+        );
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const ed = editor;
+        if (!ed) return true;
+        const pos = view.state.selection.from;
+        for (const file of files) void uploadAndInsert(ed, file, pos);
+        return true;
+      },
+      handleDrop(view, event) {
+        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+          f.type.startsWith('image/'),
+        );
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const ed = editor;
+        if (!ed) return true;
+        const coords = { left: event.clientX, top: event.clientY };
+        const dropPos = view.posAtCoords(coords)?.pos ?? view.state.selection.from;
+        for (const file of files) void uploadAndInsert(ed, file, dropPos);
+        return true;
       },
     },
     autofocus: autoFocus,

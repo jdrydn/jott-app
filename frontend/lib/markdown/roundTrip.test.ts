@@ -63,6 +63,14 @@ const GOLDEN: Array<{ name: string; md: string }> = [
     name: 'hard break inside paragraph',
     md: 'line one  \nline two',
   },
+  {
+    name: 'block-level image alone',
+    md: '![alt text](/api/attachments/01HXYZTEST0000000000000001)',
+  },
+  {
+    name: 'image between paragraphs',
+    md: 'before\n\n![](/api/attachments/01HXYZTEST0000000000000001)\n\nafter',
+  },
 ];
 
 describe('markdown round-trip', () => {
@@ -120,6 +128,19 @@ describe('markdownToDoc shape', () => {
   test('headings degrade to paragraphs (not allowed in editor)', () => {
     const doc = markdownToDoc('# heading text');
     expect(doc.content[0]?.type).toBe('paragraph');
+  });
+
+  test('paragraph with only an image promotes to a block image node', () => {
+    const doc = markdownToDoc('![cap](/api/attachments/01HXYZTEST0000000000000001)');
+    expect(doc.content[0]).toMatchObject({
+      type: 'image',
+      attrs: { src: '/api/attachments/01HXYZTEST0000000000000001', alt: 'cap' },
+    });
+  });
+
+  test('inline image inside a sentence splits into text/image/text blocks', () => {
+    const doc = markdownToDoc('before ![](/api/attachments/01HXYZTEST0000000000000001) after');
+    expect(doc.content.map((c) => c.type)).toEqual(['paragraph', 'image', 'paragraph']);
   });
 });
 

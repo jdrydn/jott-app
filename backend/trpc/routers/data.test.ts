@@ -1,11 +1,14 @@
 import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { ulid } from 'ulid';
+import { encodeDataUri, writeAttachment } from '../../data/attachments';
 import { migrate } from '../../db/migrate';
 import * as schema from '../../db/schema';
+import { attachments } from '../../db/schema';
 import { appRouter } from '../router';
 import { createCallerFactory } from '../trpc';
 
@@ -19,7 +22,12 @@ type Setup = {
   cleanup: () => void;
 };
 
-function memorySetup(): { caller: ReturnType<typeof createCaller>; raw: Database } {
+function memorySetup(): {
+  caller: ReturnType<typeof createCaller>;
+  raw: Database;
+  attachmentsDir: string;
+} {
+  const attachmentsDir = mkdtempSync(join(tmpdir(), 'jott-mem-att-'));
   const raw = new Database(':memory:');
   raw.exec('PRAGMA foreign_keys = ON');
   migrate(raw);
@@ -29,9 +37,11 @@ function memorySetup(): { caller: ReturnType<typeof createCaller>; raw: Database
       db,
       raw,
       dbPath: ':memory:',
+      attachmentsDir,
       claude: { available: false, binaryPath: null, version: null },
     }),
     raw,
+    attachmentsDir,
   };
 }
 
@@ -47,6 +57,7 @@ function diskSetup(): Setup {
     db,
     raw,
     dbPath,
+    attachmentsDir: join(workdir, 'attachments'),
     claude: { available: false, binaryPath: null, version: null },
   });
   return {
@@ -140,6 +151,83 @@ describe('data.importMarkdown', () => {
     const empty = '<!-- jott export -->\n<!-- 0 entries -->\n';
     const result = await caller.data.importMarkdown({ text: empty });
     expect(result).toEqual({ imported: 0, skipped: 0, total: 0 });
+  });
+});
+
+describe('data.exportMarkdown with attachments', () => {
+  let src: ReturnType<typeof memorySetup>;
+  beforeEach(() => {
+    src = memorySetup();
+  });
+  afterEach(() => {
+    rmSync(src.attachmentsDir, { recursive: true, force: true });
+  });
+
+  test('embeds linked image attachments as data URIs', async () => {
+    // Seed an orphan attachment, then create an entry that references it (which binds it).
+    const aid = ulid();
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    writeAttachment(src.attachmentsDir, aid, 'png', bytes);
+    src.raw.run(
+      "INSERT INTO attachments (id, entry_id, kind, filename, mime, bytes, created_at) VALUES (?, NULL, 'image', ?, 'image/png', ?, ?)",
+      [aid, `${aid}.png`, bytes.byteLength, Date.now()],
+    );
+    await src.caller.entries.create({ body: `pic ![](/api/attachments/${aid})` });
+
+    const out = await src.caller.data.exportMarkdown();
+    expect(out.text).not.toContain(`/api/attachments/${aid}`);
+    expect(out.text).toContain(encodeDataUri('image/png', bytes));
+  });
+
+  test('leaves bodies without attachment URLs untouched', async () => {
+    await src.caller.entries.create({ body: 'just text' });
+    const out = await src.caller.data.exportMarkdown();
+    expect(out.text).toContain('just text');
+  });
+});
+
+describe('data.importMarkdown with attachments', () => {
+  let src: ReturnType<typeof memorySetup>;
+  let dest: ReturnType<typeof memorySetup>;
+  beforeEach(() => {
+    src = memorySetup();
+    dest = memorySetup();
+  });
+  afterEach(() => {
+    rmSync(src.attachmentsDir, { recursive: true, force: true });
+    rmSync(dest.attachmentsDir, { recursive: true, force: true });
+  });
+
+  test('round-trips: export with image → import recreates attachment + body link', async () => {
+    const aid = ulid();
+    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+    writeAttachment(src.attachmentsDir, aid, 'png', bytes);
+    src.raw.run(
+      "INSERT INTO attachments (id, entry_id, kind, filename, mime, bytes, created_at) VALUES (?, NULL, 'image', ?, 'image/png', ?, ?)",
+      [aid, `${aid}.png`, bytes.byteLength, Date.now()],
+    );
+    await src.caller.entries.create({ body: `with image ![alt](/api/attachments/${aid})` });
+    const exported = await src.caller.data.exportMarkdown();
+
+    const result = await dest.caller.data.importMarkdown({ text: exported.text });
+    expect(result.imported).toBe(1);
+
+    const db = drizzle(dest.raw, { schema });
+    const destAttachments = db.select().from(attachments).all();
+    expect(destAttachments).toHaveLength(1);
+    const newAtt = destAttachments[0];
+    expect(newAtt?.id).not.toBe(aid); // imports get fresh IDs
+    expect(newAtt?.mime).toBe('image/png');
+    expect(newAtt?.bytes).toBe(bytes.byteLength);
+
+    // File written under the destination dir.
+    const files = readdirSync(dest.attachmentsDir);
+    expect(files).toEqual([`${newAtt?.id}.png`]);
+
+    // Body now points at the new id, not the original or a data: URI.
+    const entries = await dest.caller.entries.list();
+    expect(entries[0]?.body).toContain(`/api/attachments/${newAtt?.id}`);
+    expect(entries[0]?.body).not.toContain('data:image');
   });
 });
 

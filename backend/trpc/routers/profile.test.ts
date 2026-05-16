@@ -23,6 +23,7 @@ function setup(): Setup {
       db,
       raw,
       dbPath: ':memory:',
+      attachmentsDir: '/tmp/jottapp-test-attachments',
       claude: { available: false, binaryPath: null, version: null },
     }),
     raw,
