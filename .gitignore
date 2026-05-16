@@ -6,6 +6,8 @@ jottapp
 jottapp-*
 !jottapp-*.md
 .*.bun-build
+attachments/
+backups/
 
 # Local SQLite databases
 *.db
@@ -23,3 +25,4 @@ jottapp-*
 .vscode/
 .idea/
 .claude/
+!.claude/skills/
