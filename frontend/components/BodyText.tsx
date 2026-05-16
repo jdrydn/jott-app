@@ -58,53 +58,24 @@ function Chip({
     );
   }
   const sigil = resolved.type === 'topic' ? '#' : '@';
-  const label = resolved.name;
+  const label = `${sigil}${resolved.name}`;
   const interactive = onClick != null;
-
-  if (sigil === '#') {
-    const className = `rounded px-1.5 py-0.5 font-medium ${
-      interactive ? 'cursor-pointer hover:brightness-95' : ''
-    }`;
-    const style = { backgroundColor: tint(resolved.color), color: resolved.color };
-    if (interactive) {
-      return (
-        <button type="button" onClick={onClick} className={className} style={style}>
-          #{label}
-        </button>
-      );
-    }
-    return (
-      <span className={className} style={style}>
-        #{label}
-      </span>
-    );
-  }
-
-  const innerStyle = { color: resolved.color };
-  const inner = (
-    <>
-      <span
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] font-semibold uppercase text-white"
-        style={{ backgroundColor: resolved.color }}
-      >
-        {resolved.initials}
-      </span>
-      <span className="font-medium" style={innerStyle}>
-        @{label}
-      </span>
-    </>
-  );
-  const wrapClass = `inline-flex items-center gap-1 align-baseline ${
-    interactive ? 'cursor-pointer hover:opacity-80' : ''
+  const className = `rounded px-1.5 py-0.5 font-medium ${
+    interactive ? 'cursor-pointer hover:brightness-95' : ''
   }`;
+  const style = { backgroundColor: tint(resolved.color), color: resolved.color };
   if (interactive) {
     return (
-      <button type="button" onClick={onClick} className={wrapClass}>
-        {inner}
+      <button type="button" onClick={onClick} className={className} style={style}>
+        {label}
       </button>
     );
   }
-  return <span className={wrapClass}>{inner}</span>;
+  return (
+    <span className={className} style={style}>
+      {label}
+    </span>
+  );
 }
 
 function tint(hex: string): string {

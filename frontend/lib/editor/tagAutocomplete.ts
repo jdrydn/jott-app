@@ -118,9 +118,9 @@ function renderMenu(opts: {
       onPick(i);
     });
     const avatar = document.createElement('span');
-    avatar.className = 'jott-tag-menu__avatar';
-    avatar.textContent = item.initials;
-    avatar.style.backgroundColor = item.color;
+    avatar.className = 'jott-tag-menu__sigil';
+    avatar.textContent = sigil;
+    avatar.style.color = item.color;
     btn.appendChild(avatar);
     const label = document.createElement('span');
     label.className = 'jott-tag-menu__label';

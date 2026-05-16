@@ -31,31 +31,15 @@ export function TagChipView({ node, extension }: ReactNodeViewProps) {
   }
 
   const sigil = tag.type === 'topic' ? '#' : '@';
-  if (sigil === '#') {
-    return (
-      <NodeViewWrapper as="span" className="jott-tag-node" data-jott-tag-id={id}>
-        <span
-          className="rounded px-1.5 py-0.5 font-medium"
-          style={{ backgroundColor: tint(tag.color), color: tag.color }}
-          contentEditable={false}
-        >
-          #{tag.name}
-        </span>
-      </NodeViewWrapper>
-    );
-  }
   return (
     <NodeViewWrapper as="span" className="jott-tag-node" data-jott-tag-id={id}>
-      <span className="inline-flex items-center gap-1 align-baseline" contentEditable={false}>
-        <span
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full font-mono text-[9px] font-semibold uppercase text-white"
-          style={{ backgroundColor: tag.color }}
-        >
-          {tag.initials}
-        </span>
-        <span className="font-medium" style={{ color: tag.color }}>
-          @{tag.name}
-        </span>
+      <span
+        className="rounded px-1.5 py-0.5 font-medium"
+        style={{ backgroundColor: tint(tag.color), color: tag.color }}
+        contentEditable={false}
+      >
+        {sigil}
+        {tag.name}
       </span>
     </NodeViewWrapper>
   );

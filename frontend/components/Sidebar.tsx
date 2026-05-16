@@ -98,7 +98,7 @@ function PeopleList({
     <ul className="space-y-2.5">
       {people.map((p) => {
         const active = p.id === activeId;
-        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1 text-left ${
+        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
           active
             ? 'bg-slate-100 dark:bg-slate-800'
             : onSelect
@@ -107,13 +107,10 @@ function PeopleList({
         }`;
         const inner = (
           <>
-            <div
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold uppercase text-white"
-              style={{ backgroundColor: p.color }}
-            >
-              {p.initials}
-            </div>
-            <span className="flex-1 truncate text-sm capitalize text-gray-800 dark:text-gray-200">
+            <span className="font-bold" style={{ color: p.color }}>
+              @
+            </span>
+            <span className="flex-1 truncate text-sm text-gray-800 dark:text-gray-200">
               {p.name}
             </span>
             <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -159,7 +156,7 @@ function TopicList({
         }`;
         const inner = (
           <>
-            <span className="font-mono" style={{ color: t.color }}>
+            <span className="font-bold" style={{ color: t.color }}>
               #
             </span>
             <span className="flex-1 truncate text-sm text-gray-800 dark:text-gray-200">
