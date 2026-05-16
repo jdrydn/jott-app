@@ -18,7 +18,14 @@ function setup(): Setup {
   raw.exec('PRAGMA foreign_keys = ON');
   migrate(raw);
   const db = drizzle(raw, { schema });
-  return { caller: createCaller({ db, dbPath: ':memory:' }), raw };
+  return {
+    caller: createCaller({
+      db,
+      dbPath: ':memory:',
+      claude: { available: false, binaryPath: null, version: null },
+    }),
+    raw,
+  };
 }
 
 describe('profile.get', () => {

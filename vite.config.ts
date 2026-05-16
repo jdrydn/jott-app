@@ -9,6 +9,7 @@ const BACKEND_DEV_PORT = 4854;
 
 export default defineConfig({
   root: 'frontend',
+  publicDir: resolve(projectRoot, 'public'),
   resolve: {
     alias: {
       '@backend': resolve(projectRoot, 'backend'),

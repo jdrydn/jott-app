@@ -13,7 +13,11 @@ function setup(dbPath: string) {
   const raw = new Database(':memory:');
   migrate(raw);
   const db = drizzle(raw, { schema });
-  return createCaller({ db, dbPath });
+  return createCaller({
+    db,
+    dbPath,
+    claude: { available: false, binaryPath: null, version: null },
+  });
 }
 
 describe('system.info', () => {

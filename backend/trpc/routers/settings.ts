@@ -3,8 +3,18 @@ import { z } from 'zod';
 import { settings } from '../../db/schema';
 import { publicProcedure, router } from '../trpc';
 
-export const SETTING_KEYS = ['claude.binary'] as const;
-export type SettingKey = (typeof SETTING_KEYS)[number];
+// Empty defaults mean "let the driver fall back to its own default".
+// e.g. claude with no CLAUDE_CONFIG_DIR uses ~/.claude implicitly.
+export const SETTING_DEFAULTS = {
+  'ai.driver': 'claude',
+  'ai.claude.config-dir': '',
+  'ai.claude.model': 'sonnet',
+} satisfies Record<string, string>;
+
+export type SettingKey = keyof typeof SETTING_DEFAULTS;
+export type SettingsMap = Record<SettingKey, string>;
+
+const SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as [SettingKey, ...SettingKey[]];
 
 const settingKey = z.enum(SETTING_KEYS);
 
@@ -13,8 +23,6 @@ const setInput = z.object({
   value: z.string().trim().max(1024),
 });
 
-export type SettingsMap = Partial<Record<SettingKey, string>>;
-
 export const settingsRouter = router({
   getAll: publicProcedure.query(({ ctx }): SettingsMap => {
     const rows = ctx.db
@@ -22,7 +30,7 @@ export const settingsRouter = router({
       .from(settings)
       .where(inArray(settings.key, SETTING_KEYS as unknown as string[]))
       .all();
-    const out: SettingsMap = {};
+    const out: SettingsMap = { ...SETTING_DEFAULTS };
     for (const r of rows) out[r.key as SettingKey] = r.value;
     return out;
   }),

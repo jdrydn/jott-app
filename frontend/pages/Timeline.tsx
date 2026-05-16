@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { AiBar } from '../components/AiBar';
+import { type AiAction, AiPanel } from '../components/AiPanel';
 import { Composer, type ComposerHandle } from '../components/Composer';
 import { EntryFeed } from '../components/EntryFeed';
 import { FilterBar, type Filters } from '../components/FilterBar';
@@ -12,6 +14,7 @@ export function Timeline() {
   const [trash, setTrash] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<Filters>({});
+  const [aiAction, setAiAction] = useState<AiAction | null>(null);
   const profile = trpc.profile.get.useQuery();
   const noProfile = profile.isSuccess && profile.data === null;
 
@@ -50,7 +53,12 @@ export function Timeline() {
         <main className="min-w-0 flex-1">
           {trash || searchQuery ? null : <Composer ref={composerRef} />}
           {trash ? <TrashBanner /> : null}
-          {trash || searchQuery ? null : <FilterBar filters={filters} onChange={setFilters} />}
+          {trash || searchQuery ? null : (
+            <>
+              <FilterBar filters={filters} onChange={setFilters} />
+              <AiBar onLaunch={setAiAction} />
+            </>
+          )}
           <EntryFeed
             trash={trash}
             searchQuery={searchQuery}
@@ -69,6 +77,9 @@ export function Timeline() {
           />
         </aside>
       </div>
+      {aiAction ? (
+        <AiPanel initialAction={aiAction} filters={filters} onClose={() => setAiAction(null)} />
+      ) : null}
     </div>
   );
 }
