@@ -34,12 +34,13 @@ describe('seedDemoData', () => {
     expect(latest).toBeLessThanOrEqual(now.getTime());
   });
 
-  test('every fixture body contains at least one tag token', () => {
+  test('every fixture body contains at least one tag reference', () => {
     const { db, raw } = setup();
     seedDemoData(db);
     const rows = raw.query('SELECT body FROM entries').all() as { body: string }[];
     for (const r of rows) {
-      expect(r.body).toMatch(/[#@]\w+/);
+      // After reconcile, bare #/@ tokens are rewritten to ULID markers.
+      expect(r.body).toMatch(/\{\{\s*tag\s+id=[0-9A-HJKMNP-TV-Z]{26}\s*\}\}/);
     }
   });
 

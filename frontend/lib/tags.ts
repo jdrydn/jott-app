@@ -10,24 +10,19 @@ export type ResolvedTag = {
   color: string;
 };
 
-export function buildLinkLookup(links: readonly EntryTagLink[]): Map<string, ResolvedTag> {
+// Per-entry tag links carry the live tag row (joined at query time), so the
+// lookup just maps id → row.
+export function lookupByLinks(links: readonly EntryTagLink[]): Map<string, ResolvedTag> {
   const out = new Map<string, ResolvedTag>();
-  for (const l of links) {
-    out.set(`${l.tag.type}:${l.nameWhenLinked.toLowerCase()}`, {
-      id: l.tag.id,
-      type: l.tag.type,
-      name: l.tag.name,
-      initials: l.tag.initials,
-      color: l.tag.color,
-    });
-  }
+  for (const l of links) out.set(l.tag.id, l.tag);
   return out;
 }
 
-export function buildLiveLookup(allTags: readonly TagWithStats[]): Map<string, ResolvedTag> {
+// Editor-time lookup over the full tag list (used while typing).
+export function lookupByLiveTags(allTags: readonly TagWithStats[]): Map<string, ResolvedTag> {
   const out = new Map<string, ResolvedTag>();
   for (const t of allTags) {
-    out.set(`${t.type}:${t.name}`, {
+    out.set(t.id, {
       id: t.id,
       type: t.type,
       name: t.name,
@@ -36,17 +31,4 @@ export function buildLiveLookup(allTags: readonly TagWithStats[]): Map<string, R
     });
   }
   return out;
-}
-
-export function resolveToken(
-  type: TagType,
-  word: string,
-  ...lookups: ReadonlyArray<Map<string, ResolvedTag>>
-): ResolvedTag | undefined {
-  const key = `${type}:${word.toLowerCase()}`;
-  for (const lookup of lookups) {
-    const hit = lookup.get(key);
-    if (hit) return hit;
-  }
-  return undefined;
 }

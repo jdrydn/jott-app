@@ -1,9 +1,10 @@
 import { Database } from 'bun:sqlite';
 import { beforeEach, describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from '../../db/migrate';
 import * as schema from '../../db/schema';
-import { entryTags, tags } from '../../db/schema';
+import { entries, entryTags, tags } from '../../db/schema';
 import { appRouter } from '../router';
 import { createCallerFactory } from '../trpc';
 
@@ -80,8 +81,8 @@ describe('tags.rename', () => {
     s = setup();
   });
 
-  test('renames a tag in place; entry body and nameWhenLinked untouched', async () => {
-    await s.caller.entries.create({ body: '#oldname is the tag' });
+  test('renames a tag in place and refreshes body_rendered for linked entries', async () => {
+    const created = await s.caller.entries.create({ body: '#oldname is the tag' });
     const list = await s.caller.tags.list();
     const tag = list.find((t) => t.name === 'oldname');
     expect(tag).toBeDefined();
@@ -95,8 +96,11 @@ describe('tags.rename', () => {
     const target = after.find((t) => t.id === tag.id);
     expect(target?.name).toBe('newname');
 
-    const links = db.select().from(entryTags).all();
-    expect(links[0]?.nameWhenLinked).toBe('oldname');
+    // The canonical body is untouched (still references the tag by ULID),
+    // but body_rendered reflects the new name so FTS + display update.
+    const row = db.select().from(entries).where(eq(entries.id, created.id)).get();
+    expect(row?.bodyRendered).toContain('#newname');
+    expect(row?.bodyRendered).not.toContain('#oldname');
   });
 
   test('rejects collision with existing same-type name', async () => {
@@ -120,7 +124,15 @@ describe('tags.rename', () => {
     const tag = (await s.caller.tags.list()).find((t) => t.name === 'valid');
     if (!tag) throw new Error('unreachable');
     await expect(s.caller.tags.rename({ id: tag.id, name: '1bad' })).rejects.toThrow();
-    await expect(s.caller.tags.rename({ id: tag.id, name: 'bad name' })).rejects.toThrow();
+    await expect(s.caller.tags.rename({ id: tag.id, name: '!nope' })).rejects.toThrow();
+  });
+
+  test('allows multi-word names with spaces', async () => {
+    await s.caller.entries.create({ body: '#valid' });
+    const tag = (await s.caller.tags.list()).find((t) => t.name === 'valid');
+    if (!tag) throw new Error('unreachable');
+    const renamed = await s.caller.tags.rename({ id: tag.id, name: 'Q4 Plan' });
+    expect(renamed.name).toBe('Q4 Plan');
   });
 
   test('throws NOT_FOUND for unknown id', async () => {

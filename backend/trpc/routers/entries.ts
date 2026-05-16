@@ -6,11 +6,10 @@ import type { TagType } from '../../../shared/tags';
 import { reconcileEntryAttachments } from '../../attachments/reconcile';
 import type { Db } from '../../db/client';
 import { type Entry, entries, entryTags, tags } from '../../db/schema';
-import { reconcileEntryTags } from '../../tags/reconcile';
+import { linkEntryTags, prepareEntryBody } from '../../tags/reconcile';
 import { publicProcedure, router } from '../trpc';
 
 export type EntryTagLink = {
-  nameWhenLinked: string;
   tag: {
     id: string;
     type: TagType;
@@ -79,7 +78,6 @@ function attachTags(db: Db, rows: Entry[]): EntryWithTags[] {
   const links = db
     .select({
       entryId: entryTags.entryId,
-      nameWhenLinked: entryTags.nameWhenLinked,
       tagId: tags.id,
       type: tags.type,
       name: tags.name,
@@ -94,7 +92,6 @@ function attachTags(db: Db, rows: Entry[]): EntryWithTags[] {
   for (const l of links) {
     const arr = byEntry.get(l.entryId) ?? [];
     arr.push({
-      nameWhenLinked: l.nameWhenLinked,
       tag: {
         id: l.tagId,
         type: l.type,
@@ -179,18 +176,23 @@ export const entriesRouter = router({
 
   create: publicProcedure.input(createInput).mutation(({ ctx, input }): Entry => {
     const now = Date.now();
-    const row = {
-      id: ulid(),
-      body: input.body,
-      createdAt: now,
-      updatedAt: now,
-    };
     return ctx.db.transaction((tx) => {
-      const inserted = tx.insert(entries).values(row).returning().get();
+      const prep = prepareEntryBody(tx, input.body, now);
+      const inserted = tx
+        .insert(entries)
+        .values({
+          id: ulid(now),
+          body: prep.body,
+          bodyRendered: prep.bodyRendered,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .get();
       if (!inserted) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'insert returned no row' });
       }
-      reconcileEntryTags(tx, inserted.id, inserted.body, now);
+      linkEntryTags(tx, inserted.id, prep.tagIds, now);
       reconcileEntryAttachments(tx, ctx.attachmentsDir, inserted.id, inserted.body);
       return inserted;
     });
@@ -206,16 +208,17 @@ export const entriesRouter = router({
       if (existing.deletedAt != null) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'cannot edit a deleted entry' });
       }
+      const prep = prepareEntryBody(tx, input.body, now);
       const updated = tx
         .update(entries)
-        .set({ body: input.body, updatedAt: now })
+        .set({ body: prep.body, bodyRendered: prep.bodyRendered, updatedAt: now })
         .where(eq(entries.id, input.id))
         .returning()
         .get();
       if (!updated) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'update returned no row' });
       }
-      reconcileEntryTags(tx, updated.id, updated.body, now);
+      linkEntryTags(tx, updated.id, prep.tagIds, now);
       reconcileEntryAttachments(tx, ctx.attachmentsDir, updated.id, updated.body);
       return updated;
     });

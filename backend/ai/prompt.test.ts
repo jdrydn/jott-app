@@ -7,6 +7,7 @@ const entry = (id: string, ms: number, body: string): Entry => ({
   createdAt: ms,
   updatedAt: ms,
   body,
+  bodyRendered: body,
   deletedAt: null,
 });
 

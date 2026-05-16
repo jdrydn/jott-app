@@ -143,10 +143,7 @@ describe('migrate', () => {
       `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
        VALUES ('t1', 'topic', 'work', 'WO', '#000', 1, 1)`,
     );
-    db.exec(
-      `INSERT INTO entry_tags (entry_id, tag_id, name_when_linked, created_at)
-       VALUES ('e1', 't1', 'work', 1)`,
-    );
+    db.exec(`INSERT INTO entry_tags (entry_id, tag_id, created_at) VALUES ('e1', 't1', 1)`);
     db.exec(`DELETE FROM tags WHERE id = 't1'`);
     const after = db.query('SELECT COUNT(*) AS n FROM entry_tags').get() as { n: number };
     expect(after.n).toBe(0);
@@ -155,10 +152,7 @@ describe('migrate', () => {
       `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
        VALUES ('t2', 'topic', 'work', 'WO', '#000', 1, 1)`,
     );
-    db.exec(
-      `INSERT INTO entry_tags (entry_id, tag_id, name_when_linked, created_at)
-       VALUES ('e1', 't2', 'work', 1)`,
-    );
+    db.exec(`INSERT INTO entry_tags (entry_id, tag_id, created_at) VALUES ('e1', 't2', 1)`);
     db.exec(`DELETE FROM entries WHERE id = 'e1'`);
     const after2 = db.query('SELECT COUNT(*) AS n FROM entry_tags').get() as { n: number };
     expect(after2.n).toBe(0);
@@ -177,27 +171,27 @@ describe('migrate', () => {
     const db = new Database(':memory:');
     migrate(db);
     db.exec(
-      `INSERT INTO entries (id, created_at, updated_at, body) VALUES ('e1', 1, 1, 'shipping the launch')`,
+      `INSERT INTO entries (id, created_at, updated_at, body, body_rendered) VALUES ('e1', 1, 1, 'shipping the launch', 'shipping the launch')`,
     );
     let rows = db
-      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'launch'")
-      .all() as Array<{ body: string }>;
+      .query("SELECT body_rendered FROM entries_fts WHERE entries_fts MATCH 'launch'")
+      .all() as Array<{ body_rendered: string }>;
     expect(rows).toHaveLength(1);
 
-    db.exec(`UPDATE entries SET body = 'rolling back' WHERE id = 'e1'`);
+    db.exec(`UPDATE entries SET body_rendered = 'rolling back' WHERE id = 'e1'`);
     rows = db
-      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'launch'")
-      .all() as Array<{ body: string }>;
+      .query("SELECT body_rendered FROM entries_fts WHERE entries_fts MATCH 'launch'")
+      .all() as Array<{ body_rendered: string }>;
     expect(rows).toHaveLength(0);
     rows = db
-      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'rolling'")
-      .all() as Array<{ body: string }>;
+      .query("SELECT body_rendered FROM entries_fts WHERE entries_fts MATCH 'rolling'")
+      .all() as Array<{ body_rendered: string }>;
     expect(rows).toHaveLength(1);
 
     db.exec(`DELETE FROM entries WHERE id = 'e1'`);
     rows = db
-      .query("SELECT body FROM entries_fts WHERE entries_fts MATCH 'rolling'")
-      .all() as Array<{ body: string }>;
+      .query("SELECT body_rendered FROM entries_fts WHERE entries_fts MATCH 'rolling'")
+      .all() as Array<{ body_rendered: string }>;
     expect(rows).toHaveLength(0);
   });
 
