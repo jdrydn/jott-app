@@ -108,9 +108,7 @@ function main(): void {
           const tmpl = pick(TEMPLATES);
           const body = tmpl(pick(PEOPLE), pick(TOPICS));
           const id = ulid(ts);
-          tx.insert(entries)
-            .values({ id, body, createdAt: ts, updatedAt: ts })
-            .run();
+          tx.insert(entries).values({ id, body, createdAt: ts, updatedAt: ts }).run();
           reconcileEntryTags(tx, id, body, ts);
           inserted++;
         }
