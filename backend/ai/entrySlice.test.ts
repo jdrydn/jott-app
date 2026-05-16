@@ -85,8 +85,8 @@ describe('fetchEntrySlice', () => {
       .run();
     db.insert(entryTags)
       .values([
-        { entryId: 'a', tagId: 'tag1', nameWhenLinked: 'work', createdAt: 1 },
-        { entryId: 'c', tagId: 'tag1', nameWhenLinked: 'work', createdAt: 1 },
+        { entryId: 'a', tagId: 'tag1', createdAt: 1 },
+        { entryId: 'c', tagId: 'tag1', createdAt: 1 },
       ])
       .run();
     expect(fetchEntrySlice(db, { tagId: 'tag1' }).map((e) => e.id)).toEqual(['a', 'c']);

@@ -11,7 +11,13 @@ export type PMTextNode = {
 
 export type PMHardBreak = { type: 'hardBreak'; marks?: PMMark[] };
 
-export type PMInlineNode = PMTextNode | PMHardBreak;
+export type PMTagNode = {
+  type: 'tag';
+  attrs: { id: string };
+  marks?: PMMark[];
+};
+
+export type PMInlineNode = PMTextNode | PMHardBreak | PMTagNode;
 
 export type PMBlockNode = {
   type: string;

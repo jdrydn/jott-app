@@ -1,3 +1,4 @@
+import { TAG_REF_REGEX } from '@shared/tags';
 import { marked, type Tokens } from 'marked';
 import type { PMBlockNode, PMDoc, PMInlineNode, PMMark, PMNode } from './types';
 
@@ -142,7 +143,8 @@ function pushInline(out: PMNode[], tk: AnyToken, marks: PMMark[]): void {
     case 'escape': {
       const text = tk.text ?? '';
       if (text.length === 0) return;
-      out.push(textNode(text, marks));
+      // Split out canonical {{ tag id=ULID }} markers into inline atom nodes.
+      pushTextWithTags(out, text, marks);
       return;
     }
     case 'strong':
@@ -187,4 +189,20 @@ function pushInline(out: PMNode[], tk: AnyToken, marks: PMMark[]): void {
 
 function textNode(text: string, marks: PMMark[]): PMInlineNode {
   return marks.length > 0 ? { type: 'text', text, marks: [...marks] } : { type: 'text', text };
+}
+
+function pushTextWithTags(out: PMNode[], text: string, marks: PMMark[]): void {
+  let last = 0;
+  for (const m of text.matchAll(TAG_REF_REGEX)) {
+    const start = m.index ?? 0;
+    if (start > last) out.push(textNode(text.slice(last, start), marks));
+    const id = m[1];
+    if (id) out.push({ type: 'tag', attrs: { id } });
+    last = start + m[0].length;
+  }
+  if (last === 0) {
+    out.push(textNode(text, marks));
+    return;
+  }
+  if (last < text.length) out.push(textNode(text.slice(last), marks));
 }

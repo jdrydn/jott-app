@@ -142,6 +142,17 @@ function Inline({ nodes, links, onTagClick }: { nodes: PMInlineNode[] } & ViewPr
       out.push(<br key={i} />);
       return;
     }
+    if (n.type === 'tag') {
+      // Tag inline atoms render as a single-marker BodyText so chip + onClick
+      // styling stays identical to the surrounding text path.
+      out.push(
+        // biome-ignore lint/suspicious/noArrayIndexKey: inline nodes derived from a stable body
+        <BodyText key={i} links={links} onTagClick={onTagClick}>
+          {`{{ tag id=${n.attrs.id} }}`}
+        </BodyText>,
+      );
+      return;
+    }
     if (n.type !== 'text') return;
     const marks = n.marks ?? [];
     const isCode = marks.some((m) => m.type === 'code');

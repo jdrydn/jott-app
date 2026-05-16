@@ -1,7 +1,7 @@
 import type { EntryTagLink } from '@backend/trpc/routers/entries';
-import { TAG_REGEX, type TagType } from '@shared/tags';
+import { TAG_REF_REGEX } from '@shared/tags';
 import type { ReactNode } from 'react';
-import { buildLinkLookup, type ResolvedTag, resolveToken } from '../lib/tags';
+import { lookupByLinks, type ResolvedTag } from '../lib/tags';
 
 export type BodyTextProps = {
   children: string;
@@ -10,7 +10,7 @@ export type BodyTextProps = {
 };
 
 export function BodyText({ children, links, onTagClick }: BodyTextProps) {
-  const lookup = links ? buildLinkLookup(links) : undefined;
+  const lookup = links ? lookupByLinks(links) : undefined;
   return <>{renderTokens(children, lookup, onTagClick)}</>;
 }
 
@@ -22,18 +22,15 @@ function renderTokens(
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let key = 0;
-  for (const match of text.matchAll(TAG_REGEX)) {
+  for (const match of text.matchAll(TAG_REF_REGEX)) {
     const start = match.index ?? 0;
-    const sigil = match[1] as '#' | '@';
-    const word = match[2] ?? '';
+    const id = match[1] ?? '';
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
-    const type: TagType = sigil === '#' ? 'topic' : 'user';
-    const resolved = lookup ? resolveToken(type, word, lookup) : undefined;
+    const resolved = lookup?.get(id);
     nodes.push(
       <Chip
         key={key++}
-        sigil={sigil}
-        word={word}
+        marker={match[0]}
         resolved={resolved}
         onClick={resolved && onTagClick ? () => onTagClick(resolved.id) : undefined}
       />,
@@ -45,24 +42,22 @@ function renderTokens(
 }
 
 function Chip({
-  sigil,
-  word,
+  marker,
   resolved,
   onClick,
 }: {
-  sigil: '#' | '@';
-  word: string;
+  marker: string;
   resolved?: ResolvedTag;
   onClick?: () => void;
 }) {
   if (!resolved) {
     return (
-      <span className="text-gray-500 dark:text-gray-400" title="Tag not linked">
-        {sigil}
-        {word}
+      <span className="text-gray-400 italic dark:text-gray-500" title="Tag not found">
+        {marker}
       </span>
     );
   }
+  const sigil = resolved.type === 'topic' ? '#' : '@';
   const label = resolved.name;
   const interactive = onClick != null;
 

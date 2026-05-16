@@ -2,7 +2,6 @@ import type { TagWithStats } from '@backend/trpc/routers/tags';
 import type { TagType } from '@shared/tags';
 import type { Editor } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
@@ -12,7 +11,9 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { uploadImage } from '../lib/editor/imageUpload';
 import { ImageUploadNode } from '../lib/editor/imageUploadNode';
 import { SlashMenu } from '../lib/editor/slashMenu';
-import { TagDecorations, type TagResolver } from '../lib/editor/tagDecorations';
+import { TagAutocomplete, type TagSuggestion } from '../lib/editor/tagAutocomplete';
+import type { ResolvedTag, TagLookup } from '../lib/editor/tagChipView';
+import { TagNode } from '../lib/editor/tagNode';
 import { docToMarkdown } from '../lib/markdown/toMarkdown';
 import { markdownToDoc } from '../lib/markdown/toProseMirror';
 import { trpc } from '../trpc';
@@ -70,15 +71,74 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
   const tagsRef = useRef<TagWithStats[]>([]);
   tagsRef.current = tagsQuery.data ?? [];
 
-  const resolveTag: TagResolver = useCallback((type, word) => {
-    const key = `${type}:${word.toLowerCase()}`;
+  const utils = trpc.useUtils();
+  const createTagMutation = trpc.tags.create.useMutation();
+
+  const resolveTag: TagLookup = useCallback((id) => {
     for (const t of tagsRef.current) {
-      if (`${t.type as TagType}:${t.name}` === key) {
-        return { color: t.color, initials: t.initials, name: t.name };
+      if (t.id === id) {
+        return {
+          id: t.id,
+          type: t.type as TagType,
+          name: t.name,
+          initials: t.initials,
+          color: t.color,
+        } satisfies ResolvedTag;
       }
     }
     return undefined;
   }, []);
+
+  const suggest = useCallback((type: TagType, query: string): TagSuggestion[] => {
+    const q = query.trim().toLowerCase();
+    const matching = tagsRef.current
+      .filter((t) => (t.type as TagType) === type)
+      .filter((t) => (q ? t.name.toLowerCase().includes(q) : true));
+    matching.sort((a, b) => {
+      // Prefer prefix matches, then by count desc, then alphabetical.
+      const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+      const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      if (a.count !== b.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    });
+    return matching.map((t) => ({
+      id: t.id,
+      type: t.type as TagType,
+      name: t.name,
+      initials: t.initials,
+      color: t.color,
+    }));
+  }, []);
+
+  const createTag = useCallback(
+    async (type: TagType, name: string): Promise<{ id: string }> => {
+      const tag = await createTagMutation.mutateAsync({ type, name });
+      // Patch the local ref synchronously so the NodeView that's about to mount
+      // (inside the same microtask) can resolve the chip on first render —
+      // otherwise it falls through to the "broken" branch and renders the raw
+      // marker until the next PM transaction triggers a NodeView update.
+      const now = Date.now();
+      tagsRef.current = [
+        ...tagsRef.current,
+        {
+          id: tag.id,
+          type: tag.type,
+          name: tag.name,
+          initials: tag.initials,
+          color: tag.color,
+          createdAt: now,
+          updatedAt: now,
+          count: 0,
+          lastSeen: null,
+        },
+      ];
+      // Re-fetch in the background so the sidebar + other consumers catch up.
+      void utils.tags.list.invalidate();
+      return { id: tag.id };
+    },
+    [createTagMutation, utils.tags.list],
+  );
 
   // Stable refs so handler closures don't capture stale callbacks.
   const onSubmitRef = useRef(onSubmit);
@@ -136,14 +196,17 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
   const editor = useEditor({
     extensions: useMemo(
       () => [
-        StarterKit.configure({ heading: false }),
-        Link.configure({ openOnClick: false, autolink: true }),
+        StarterKit.configure({
+          heading: false,
+          link: { openOnClick: false, autolink: true },
+        }),
         TaskList,
         TaskItem.configure({ nested: false }),
         Image.configure({ inline: false, allowBase64: false }),
         ImageUploadNode,
         Placeholder.configure({ placeholder }),
-        TagDecorations.configure({ resolveTag }),
+        TagNode.configure({ resolveTag }),
+        TagAutocomplete.configure({ suggest, createTag }),
         SlashMenu.configure({
           commands: [
             {
@@ -157,7 +220,7 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
           ],
         }),
       ],
-      [placeholder, resolveTag],
+      [placeholder, resolveTag, suggest, createTag],
     ),
     content: initialContent,
     editorProps: {
@@ -232,7 +295,8 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
     [editor, flushAutoSave],
   );
 
-  // Refresh chip decorations when the tag list changes.
+  // Force a re-render of chip NodeViews when the tag list updates (rename,
+  // color change, etc.) so live data flows through `resolveTag`.
   // biome-ignore lint/correctness/useExhaustiveDependencies: dataUpdatedAt is the trigger
   useEffect(() => {
     if (!editor) return;

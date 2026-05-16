@@ -13,7 +13,10 @@ export const entries = sqliteTable(
     id: text('id').primaryKey().notNull(),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
+    // Canonical form: {{ tag id=ULID }} markers reference tags by ID, plain text otherwise.
     body: text('body').notNull(),
+    // Derived: body with markers resolved to @name / #name; FTS indexes this column.
+    bodyRendered: text('body_rendered').notNull().default(''),
     deletedAt: integer('deleted_at'),
   },
   (t) => [index('entries_created_at_idx').on(t.createdAt)],
@@ -49,7 +52,6 @@ export const entryTags = sqliteTable(
     tagId: text('tag_id')
       .notNull()
       .references(() => tags.id, { onDelete: 'cascade' }),
-    nameWhenLinked: text('name_when_linked').notNull(),
     createdAt: integer('created_at').notNull(),
   },
   (t) => [

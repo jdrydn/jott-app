@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { defaultColor, defaultInitials, extractTags, TAG_REGEX, tagSigil } from './tags';
+import {
+  defaultColor,
+  defaultInitials,
+  extractBareTags,
+  extractTagRefs,
+  formatTagRef,
+  renderBody,
+  TAG_REF_REGEX,
+  TAG_REGEX,
+  tagSigil,
+} from './tags';
 
 describe('TAG_REGEX', () => {
   test('matches a basic topic and user', () => {
@@ -33,30 +43,73 @@ describe('TAG_REGEX', () => {
   });
 });
 
-describe('extractTags', () => {
+describe('TAG_REF_REGEX', () => {
+  test('matches a canonical ULID marker', () => {
+    const id = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
+    const matches = [...`hi ${formatTagRef(id)} there`.matchAll(TAG_REF_REGEX)];
+    expect(matches.map((m) => m[1])).toEqual([id]);
+  });
+
+  test('matches multiple markers in one body', () => {
+    const a = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
+    const b = '01H4G9X8Y7Z6V5T4S3R2Q1P0NA';
+    const body = `${formatTagRef(a)} then ${formatTagRef(b)}`;
+    expect(extractTagRefs(body)).toEqual([a, b]);
+  });
+
+  test('does not match invalid id payloads', () => {
+    expect(extractTagRefs('{{ tag id=NOTULID }}')).toEqual([]);
+    expect(extractTagRefs('{{ tag id= }}')).toEqual([]);
+  });
+});
+
+describe('extractBareTags', () => {
   test('returns ordered, deduplicated tags', () => {
-    const out = extractTags('met @priya about #q3-plan; @priya signed off on #q3-plan');
+    const out = extractBareTags('met @priya about #q3-plan; @priya signed off on #q3-plan');
     expect(out).toEqual([
-      { type: 'user', name: 'priya', nameWhenLinked: 'priya' },
-      { type: 'topic', name: 'q3-plan', nameWhenLinked: 'q3-plan' },
+      { type: 'user', name: 'priya' },
+      { type: 'topic', name: 'q3-plan' },
     ]);
   });
 
-  test('lowercases name, preserves first literal in nameWhenLinked', () => {
-    const out = extractTags('hi #Work and #WORK');
-    expect(out).toEqual([{ type: 'topic', name: 'work', nameWhenLinked: 'Work' }]);
+  test('lowercases name regardless of input casing', () => {
+    const out = extractBareTags('hi #Work and #WORK');
+    expect(out).toEqual([{ type: 'topic', name: 'work' }]);
   });
 
   test('separates topic and user namespaces', () => {
-    const out = extractTags('@work vs #work');
+    const out = extractBareTags('@work vs #work');
     expect(out).toEqual([
-      { type: 'user', name: 'work', nameWhenLinked: 'work' },
-      { type: 'topic', name: 'work', nameWhenLinked: 'work' },
+      { type: 'user', name: 'work' },
+      { type: 'topic', name: 'work' },
     ]);
   });
 
   test('returns empty for body with no tags', () => {
-    expect(extractTags('plain prose')).toEqual([]);
+    expect(extractBareTags('plain prose')).toEqual([]);
+  });
+});
+
+describe('renderBody', () => {
+  test('replaces markers with @name / #name from the lookup', () => {
+    const a = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
+    const b = '01H4G9X8Y7Z6V5T4S3R2Q1P0NA';
+    const lookup = new Map([
+      [a, { type: 'user' as const, name: 'priya' }],
+      [b, { type: 'topic' as const, name: 'q3-plan' }],
+    ]);
+    const body = `met ${formatTagRef(a)} about ${formatTagRef(b)}`;
+    expect(renderBody(body, lookup)).toBe('met @priya about #q3-plan');
+  });
+
+  test('leaves unknown ids as literal marker text', () => {
+    const id = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
+    const body = `lost ${formatTagRef(id)} ref`;
+    expect(renderBody(body, new Map())).toBe(body);
+  });
+
+  test('passes plain text through untouched', () => {
+    expect(renderBody('no markers here', new Map())).toBe('no markers here');
   });
 });
 

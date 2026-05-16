@@ -309,13 +309,14 @@ Gated — each leaves a working, runnable binary.
 - Pagination is for the timeline (`list`) only — `search` remains a single FTS query capped at 50 results.
 - `scripts/seed-30d.ts` added for local demo: ~6 entries/day across the last 30 days, randomised between 8am–6pm, drawn from a small template/people/topic pool so tag chips render.
 
-### M8 - Improved tagging
-- Tags should be stored in entry text as `{{ tag id=${Tag.id} }}`, but rendered correctly in the UI
-- In Markdown exports, tags should be represented as `@Tag.name` (or `#Tag.name`) with `<!-- Tag: ${UUID} -->` as comment right after
-  - And at the bottom of the export, we should have a `Tags` section of a table with Tag properties (ID, Type, Name, Initials, Color)
-  - Which should be easily imported to rebuild!
-- When typing in a tag, a dropdown should start to autocomplete names (ask me for an example screenshot), capped to top 4
-- And when I want to create a new tag, let me type in the name including spaces, but I need to use the keyboard to break out of the tag naming journey
+### M8 — Improved tagging ✓ shipped 2026-05-17
+- Body now stores `{{ tag id=ULID }}` markers (canonical); `entries.body_rendered` is the derived `@name`/`#name` form that FTS indexes. Rename/delete of a tag recomputes `body_rendered` for every linked entry — no body rewrite needed.
+- `entry_tags.name_when_linked` retired (rename-on-display is automatic when tags are id-referenced). Migration `0007_tags_v2.sql` adds `body_rendered`, drops the column, and rebuilds the FTS table against `body_rendered`.
+- New `tags.create({ type, name })` mutation; tag names may contain spaces (e.g. "James Dryden"). Bare `#foo`/`@foo` tokens typed in the editor are still auto-extracted (lowercase, kebab) by the reconciler on save.
+- TipTap `tag` inline atom + React NodeView renders the chip; replaces the prior `TagDecorations` plugin. Markdown round-trip via `{{ tag id=ULID }}` markers.
+- Hand-rolled autocomplete plugin: triggers on `#`/`@`, top 4 suggestions, "New" badge for unmatched query. Keys: ↑↓ Enter/Tab Esc. Multi-word names supported (regex allows spaces while menu is open). Dropdown portals to `<body>` with `position: fixed` so the composer's `overflow-hidden` wrapper can't clip it.
+- Markdown export emits `@name <!-- Tag: ULID -->` per chip + a `## Tags` table at the bottom (id/type/name/initials/color). Import upserts tags by id (with `(type, name)` collision-suffixing), rewrites comment-anchored tokens back to canonical markers, then reconciles.
+- `scripts/seed-30d.ts` pre-seeds 12 people (including multi-word names like "James Dryden") + 15 topics, then references them by ULID. Yesterday-back, leaving today empty for the first real jott.
 
 ### M9 — Formal releases
 - Cross-compile binaries (macOS arm64/x64, Linux x64/arm64, Windows x64)
@@ -495,3 +496,10 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-16 | Timeline pagination uses `(ts, id)` cursor with id as a deterministic tiebreaker    | ULIDs are time-sortable but two entries can share a `createdAt` ms; pairing with `id DESC` keeps page boundaries stable and avoids dropped/duplicated rows when paging |
 | 2026-05-16 | Fetch `limit + 1` to detect `hasMore` instead of a separate `COUNT(*)`              | One round-trip; the extra row is trimmed server-side. `COUNT` would scan the filtered set twice for no gain |
 | 2026-05-16 | Search stays unpaginated; pagination is timeline-only                               | Search results are already capped at 50 by FTS bm25 ranking; users skim, not scroll. Adding cursor here would complicate the bm25 ordering for no real UX win |
+| 2026-05-17 | Body stores `{{ tag id=ULID }}` markers + a derived `body_rendered` column          | Identity-based references make rename/delete a metadata change instead of a body rewrite; the rendered column is what FTS indexes so search still feels textual |
+| 2026-05-17 | Skip migrating existing entries to the new shape; refactor seed + tests instead     | Project is pre-release — the simplicity of a clean dev DB beats the complexity (and risk) of an in-place body rewrite |
+| 2026-05-17 | `entry_tags.name_when_linked` dropped now that bodies reference tags by id          | The rename-on-display trick is unnecessary when the body itself carries the canonical id — fewer columns to keep coherent |
+| 2026-05-17 | Tag node is a real inline atom (not a decoration) with a React NodeView             | Decorations couldn't carry attrs through markdown round-trip; an atom node round-trips cleanly via `{{ tag id=ULID }}` and gets a proper, isolated render path |
+| 2026-05-17 | Autocomplete dropdown portals to `<body>` with `position: fixed`                    | Composer wrapper has `overflow-hidden`; portaling out is the simplest way to escape any ancestor clipping without coupling layout decisions to the menu |
+| 2026-05-17 | After autocomplete-create, patch `tagsRef` synchronously so the chip resolves on first render | React Query refetches asynchronously — patching the ref bypasses the re-render delay so the NodeView never renders the broken "literal marker" fallback |
+| 2026-05-17 | Export emits `@name <!-- Tag: ULID -->` per chip + a `## Tags` table at the bottom  | The visible `@name` reads naturally; the comment carries identity for round-trip; the table seeds tag rows on import (with `(type, name)` collision-suffixing) |

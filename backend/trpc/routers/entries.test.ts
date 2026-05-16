@@ -82,20 +82,16 @@ describe('entries.list', () => {
     await s.caller.entries.create({ body: 'hi @priya' });
     const { items } = await s.caller.entries.list();
     expect(items[0]?.tags).toHaveLength(1);
-    expect(items[0]?.tags[0]).toMatchObject({
-      nameWhenLinked: 'priya',
-      tag: { type: 'user', name: 'priya' },
-    });
+    expect(items[0]?.tags[0]?.tag).toMatchObject({ type: 'user', name: 'priya' });
   });
 
-  test('tag link reflects current tag.name after rename (display swap)', async () => {
+  test('tag link reflects current tag.name after rename', async () => {
     await s.caller.entries.create({ body: '#oldname is the topic' });
     const tag = (await s.caller.tags.list()).find((t) => t.name === 'oldname');
     if (!tag) throw new Error('unreachable');
     await s.caller.tags.rename({ id: tag.id, name: 'newname' });
 
     const { items } = await s.caller.entries.list();
-    expect(items[0]?.tags[0]?.nameWhenLinked).toBe('oldname');
     expect(items[0]?.tags[0]?.tag.name).toBe('newname');
   });
 });
@@ -393,13 +389,13 @@ describe('entries.search', () => {
     expect(hits.map((h) => h.body)).toEqual(['production rollout incoming']);
   });
 
-  test('hyphenated tag tokens (e.g. q3-plan) match', async () => {
+  test('hyphenated tag tokens (e.g. q3-plan) match via body_rendered', async () => {
     await s.caller.entries.create({ body: 'sync about #q3-plan with @priya' });
     await s.caller.entries.create({ body: 'unrelated note' });
 
     const hits = await s.caller.entries.search({ q: 'q3-plan' });
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.body).toContain('q3-plan');
+    expect(hits[0]?.bodyRendered).toContain('q3-plan');
   });
 
   test('strips leading sigils so #q3 still matches', async () => {
@@ -518,7 +514,7 @@ describe('entries.list filters', () => {
 
     const hits = await s.caller.entries.list({ tagId: work.id });
     expect(hits.items).toHaveLength(1);
-    expect(hits.items[0]?.body).toContain('#work');
+    expect(hits.items[0]?.bodyRendered).toContain('#work');
   });
 
   test('tagId returns empty when no entries link to the tag', async () => {

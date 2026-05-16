@@ -1,3 +1,4 @@
+import { formatTagRef } from '@shared/tags';
 import type { PMBlockNode, PMDoc, PMInlineNode, PMMark, PMNode } from './types';
 
 export function docToMarkdown(doc: PMDoc): string {
@@ -79,6 +80,10 @@ function inlineToMarkdown(nodes: PMInlineNode[]): string {
   for (const n of nodes) {
     if (n.type === 'hardBreak') {
       out += '  \n';
+      continue;
+    }
+    if (n.type === 'tag') {
+      out += formatTagRef(n.attrs.id);
       continue;
     }
     if (n.type !== 'text') continue;
