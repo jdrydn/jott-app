@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
@@ -22,13 +22,23 @@ export type EntryTagLink = {
 
 export type EntryWithTags = Entry & { tags: EntryTagLink[] };
 
+export type ListCursor = { ts: number; id: string };
+
+export type EntryPage = { items: EntryWithTags[]; nextCursor: ListCursor | null };
+
+const cursorInput = z.object({
+  ts: z.number().int().nonnegative(),
+  id: z.string().min(1),
+});
+
 const listInput = z
   .object({
-    limit: z.number().int().min(1).max(200).default(50),
+    limit: z.number().int().min(1).max(200).default(100),
     trash: z.boolean().default(false),
     tagId: z.string().min(1).optional(),
     from: z.number().int().nonnegative().optional(),
     to: z.number().int().nonnegative().optional(),
+    cursor: cursorInput.nullish(),
   })
   .optional();
 
@@ -99,10 +109,10 @@ function attachTags(db: Db, rows: Entry[]): EntryWithTags[] {
 }
 
 export const entriesRouter = router({
-  list: publicProcedure.input(listInput).query(({ ctx, input }): EntryWithTags[] => {
-    const limit = input?.limit ?? 50;
+  list: publicProcedure.input(listInput).query(({ ctx, input }): EntryPage => {
+    const limit = input?.limit ?? 100;
     const trash = input?.trash ?? false;
-    const order = trash ? desc(entries.deletedAt) : desc(entries.createdAt);
+    const orderColumn = trash ? entries.deletedAt : entries.createdAt;
 
     const where = [trash ? isNotNull(entries.deletedAt) : isNull(entries.deletedAt)];
     if (input?.from != null) where.push(gte(entries.createdAt, input.from));
@@ -114,18 +124,32 @@ export const entriesRouter = router({
         .where(eq(entryTags.tagId, input.tagId))
         .all()
         .map((r) => r.entryId);
-      if (linked.length === 0) return [];
+      if (linked.length === 0) return { items: [], nextCursor: null };
       where.push(inArray(entries.id, linked));
+    }
+    if (input?.cursor) {
+      const cursorCond = or(
+        lt(orderColumn, input.cursor.ts),
+        and(eq(orderColumn, input.cursor.ts), lt(entries.id, input.cursor.id)),
+      );
+      if (cursorCond) where.push(cursorCond);
     }
 
     const rows = ctx.db
       .select()
       .from(entries)
       .where(and(...where))
-      .orderBy(order)
-      .limit(limit)
+      .orderBy(desc(orderColumn), desc(entries.id))
+      .limit(limit + 1)
       .all();
-    return attachTags(ctx.db, rows);
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const last = items[items.length - 1];
+    const nextCursor: ListCursor | null =
+      hasMore && last ? { ts: (trash ? last.deletedAt : last.createdAt) ?? 0, id: last.id } : null;
+
+    return { items: attachTags(ctx.db, items), nextCursor };
   }),
 
   search: publicProcedure.input(searchInput).query(({ ctx, input }): EntryWithTags[] => {

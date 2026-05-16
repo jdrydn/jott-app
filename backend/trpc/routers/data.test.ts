@@ -121,7 +121,7 @@ describe('data.importMarkdown', () => {
     expect(result).toEqual({ imported: 2, skipped: 0, total: 2 });
 
     const list = await dest.caller.entries.list();
-    const ids = list.map((e) => e.id).sort();
+    const ids = list.items.map((e) => e.id).sort();
     expect(ids).toEqual([a.id, b.id].sort());
     const tags = await dest.caller.tags.list();
     expect(tags.map((t) => t.name).sort()).toEqual(['plan', 'priya']);
@@ -136,8 +136,8 @@ describe('data.importMarkdown', () => {
     expect(result).toEqual({ imported: 0, skipped: 1, total: 1 });
 
     const list = await src.caller.entries.list();
-    expect(list).toHaveLength(1);
-    expect(list[0]?.id).toBe(a.id);
+    expect(list.items).toHaveLength(1);
+    expect(list.items[0]?.id).toBe(a.id);
   });
 
   test('rejects malformed markdown with BAD_REQUEST', async () => {
@@ -226,8 +226,8 @@ describe('data.importMarkdown with attachments', () => {
 
     // Body now points at the new id, not the original or a data: URI.
     const entries = await dest.caller.entries.list();
-    expect(entries[0]?.body).toContain(`/api/attachments/${newAtt?.id}`);
-    expect(entries[0]?.body).not.toContain('data:image');
+    expect(entries.items[0]?.body).toContain(`/api/attachments/${newAtt?.id}`);
+    expect(entries.items[0]?.body).not.toContain('data:image');
   });
 });
 
