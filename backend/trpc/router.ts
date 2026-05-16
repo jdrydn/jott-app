@@ -1,4 +1,5 @@
 import { aiRouter } from './routers/ai';
+import { dataRouter } from './routers/data';
 import { entriesRouter } from './routers/entries';
 import { profileRouter } from './routers/profile';
 import { settingsRouter } from './routers/settings';
@@ -8,6 +9,7 @@ import { router } from './trpc';
 
 export const appRouter = router({
   ai: aiRouter,
+  data: dataRouter,
   entries: entriesRouter,
   profile: profileRouter,
   settings: settingsRouter,

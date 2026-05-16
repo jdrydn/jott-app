@@ -22,7 +22,7 @@ function setup(claude: ClaudeDetection) {
   raw.exec('PRAGMA foreign_keys = ON');
   migrate(raw);
   const db = drizzle(raw, { schema });
-  return createCaller({ db, dbPath: ':memory:', claude });
+  return createCaller({ db, raw, dbPath: ':memory:', claude });
 }
 
 describe('ai.status', () => {

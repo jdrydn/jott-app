@@ -22,6 +22,7 @@ function setup(): Setup {
   return {
     caller: createCaller({
       db,
+      raw,
       dbPath: ':memory:',
       claude: { available: false, binaryPath: null, version: null },
     }),

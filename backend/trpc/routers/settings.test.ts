@@ -22,6 +22,7 @@ function setup(): Setup {
   return {
     caller: createCaller({
       db,
+      raw,
       dbPath: ':memory:',
       claude: { available: false, binaryPath: null, version: null },
     }),
@@ -102,10 +103,20 @@ describe('SETTING_DEFAULTS', () => {
       'ai.claude.config-dir',
       'ai.claude.model',
       'ai.driver',
+      'backup.dir',
+      'backup.onQuit',
     ]);
   });
 
   test('ai.claude.config-dir defaults to empty (driver uses its own default)', () => {
     expect(SETTING_DEFAULTS['ai.claude.config-dir']).toBe('');
+  });
+
+  test('backup.onQuit defaults to "false"', () => {
+    expect(SETTING_DEFAULTS['backup.onQuit']).toBe('false');
+  });
+
+  test('backup.dir defaults to empty (resolved at runtime from db path)', () => {
+    expect(SETTING_DEFAULTS['backup.dir']).toBe('');
   });
 });
