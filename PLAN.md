@@ -302,22 +302,34 @@ Gated — each leaves a working, runnable binary.
 - Export embeds `/api/attachments/:id` URLs as `data:<mime>;base64,...` URIs (single-file `.md` invariant preserved). Import decodes, writes files, creates rows, and rewrites URLs in the persisted body.
 - Settings → System now surfaces the attachments dir (read-only).
 
-### M7 — Release prep
+### M7 - Timeline pagination
+- The timeline view should list the last 100 entries
+- And paginate with cursor-based navigation
+  (https://orm.drizzle.team/docs/guides/cursor-based-pagination)
+- And "Read More" links to fetch the next "page" of results
+
+### M8 - Improved tagging
+- Tags should be stored in entry text as `{{ tag id=${Tag.id} }}`, but rendered correctly in the UI
+- In Markdown exports, tags should be represented as `@Tag.name` (or `#Tag.name`) with `<!-- Tag: ${UUID} -->` as comment right after
+  - And at the bottom of the export, we should have a `Tags` section of a table with Tag properties (ID, Type, Name, Initials, Color)
+  - Which should be easily imported to rebuild!
+- When typing in a tag, a dropdown should start to autocomplete names (ask me for an example screenshot), capped to top 4
+- And when I want to create a new tag, let me type in the name including spaces, but I need to use the keyboard to break out of the tag naming journey
+
+### M9 — Formal releases
 - Cross-compile binaries (macOS arm64/x64, Linux x64/arm64, Windows x64)
 - GitHub Releases via Actions
-- Homebrew tap
 - `npm i -g jottapp` channel
 - README polish, `--help` quality, a simple landing page
 
-### M8 — Electron wrapper (long-haul stretch)
+### M10 — Releases via Homebreak
+- Homebrew tap repository `jottapp/setup/jottapp`
+- Updating when new releases to main repo are published
+
+### M11 — Electron wrapper (long-haul stretch)
 - Wrap the same web app in Electron for native install + tray + auto-update
 - Swap Drizzle driver from `bun-sqlite` → `better-sqlite3` (one import change, schema unchanged)
 - Hono runs under Node inside Electron's main process, serves the same renderer
-
-### M9 — CLI subcommands (long-haul stretch)
-- `jottapp new`, `jottapp list`, `jottapp ai *`, `jottapp export`, `jottapp tags` etc.
-- Reuses the existing core; just adds a command router on top
-- Useful for quick capture from terminal + scripting
 
 ### M-future — sync, mobile, encryption
 - Re-evaluate once v1 is in your hands.

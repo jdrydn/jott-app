@@ -17,8 +17,14 @@ export function Header({
   return (
     <header className="flex items-center justify-between gap-4 py-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500 font-bold text-white">
-          🗒️
+        <div className="flex h-9 w-9 items-center justify-center">
+          <img
+            src="/jottapp.png"
+            alt="Jott-App Logo"
+            aria-hidden="true"
+            className="h-7 w-7"
+            style={{ imageRendering: 'pixelated' }}
+          />
         </div>
         <div className="flex items-baseline gap-3">
           <h1 className="font-mono text-lg font-bold text-gray-900 dark:text-gray-100">jott</h1>

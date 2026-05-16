@@ -52,7 +52,7 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
 
   return (
     <form
-      className={`mb-10 overflow-hidden rounded-lg border bg-white transition-colors dark:bg-gray-900 ${
+      className={`mb-6 overflow-hidden rounded-lg border bg-white transition-colors dark:bg-gray-900 ${
         focused
           ? 'border-slate-400 ring-2 ring-slate-100 dark:border-slate-500 dark:ring-slate-800/60'
           : 'border-gray-200 dark:border-gray-800'
