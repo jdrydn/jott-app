@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, or } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { TagType } from '../../../shared/tags';
@@ -51,26 +51,6 @@ const updateInput = z.object({
 });
 
 const idInput = z.object({ id: z.string().min(1) });
-
-const searchInput = z.object({
-  q: z.string().min(1).max(200),
-  limit: z.number().int().min(1).max(200).default(50),
-});
-
-function buildMatchQuery(q: string): string | null {
-  const cleaned = q.replace(/[^\w\s-]/g, ' ').trim();
-  if (!cleaned) return null;
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return null;
-  return tokens
-    .map((tok, i) => {
-      const isLast = i === tokens.length - 1;
-      const isSimple = /^[A-Za-z0-9_]+$/.test(tok);
-      if (isLast && isSimple) return `${tok}*`;
-      return `"${tok}"`;
-    })
-    .join(' ');
-}
 
 function attachTags(db: Db, rows: Entry[]): EntryWithTags[] {
   if (rows.length === 0) return [];
@@ -147,31 +127,6 @@ export const entriesRouter = router({
       hasMore && last ? { ts: (trash ? last.deletedAt : last.createdAt) ?? 0, id: last.id } : null;
 
     return { items: attachTags(ctx.db, items), nextCursor };
-  }),
-
-  search: publicProcedure.input(searchInput).query(({ ctx, input }): EntryWithTags[] => {
-    const match = buildMatchQuery(input.q);
-    if (!match) return [];
-
-    const matches = ctx.db.all<{ id: string }>(sql`
-      SELECT entries.id AS id
-      FROM entries_fts
-      JOIN entries ON entries.rowid = entries_fts.rowid
-      WHERE entries_fts MATCH ${match}
-        AND entries.deleted_at IS NULL
-      ORDER BY bm25(entries_fts), entries.created_at DESC
-      LIMIT ${input.limit}
-    `);
-    if (matches.length === 0) return [];
-
-    const order = new Map(matches.map((m, i) => [m.id, i]));
-    const rows = ctx.db
-      .select()
-      .from(entries)
-      .where(inArray(entries.id, [...order.keys()]))
-      .all();
-    rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-    return attachTags(ctx.db, rows);
   }),
 
   create: publicProcedure.input(createInput).mutation(({ ctx, input }): Entry => {

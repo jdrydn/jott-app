@@ -7,20 +7,21 @@ import type { Filters } from './FilterBar';
 import { JottEditor, type JottEditorHandle } from './JottEditor';
 import { useToast } from './Toast';
 
+const MAX_AUTO_PAGES = 5;
+
 export function EntryFeed({
   trash = false,
-  searchQuery = '',
   filters = {},
   onSetTagFilter,
+  focusedEntryId,
+  onFocusedEntryConsumed,
 }: {
   trash?: boolean;
-  searchQuery?: string;
   filters?: Filters;
   onSetTagFilter?: (tagId: string) => void;
+  focusedEntryId?: string | null;
+  onFocusedEntryConsumed?: () => void;
 }) {
-  const debouncedQuery = useDebouncedValue(searchQuery.trim(), 200);
-  const isSearching = debouncedQuery.length > 0 && !trash;
-
   const list = trpc.entries.list.useInfiniteQuery(
     {
       trash,
@@ -29,44 +30,36 @@ export function EntryFeed({
       to: filters.to,
     },
     {
-      enabled: !isSearching,
       getNextPageParam: (last) => last.nextCursor ?? undefined,
     },
   );
-  const search = trpc.entries.search.useQuery({ q: debouncedQuery }, { enabled: isSearching });
-
-  if (isSearching ? search.isLoading : list.isLoading) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
-  }
-  const error = isSearching ? search.error : list.error;
-  if (error) {
-    return <p className="text-sm text-red-500 dark:text-red-400">Error: {error.message}</p>;
-  }
-
-  if (isSearching) {
-    const data = search.data ?? [];
-    if (data.length === 0) {
-      return (
-        <p className="text-sm italic text-gray-400 dark:text-gray-500">
-          No entries match "{debouncedQuery}".
-        </p>
-      );
-    }
-    return (
-      <div className="space-y-5">
-        <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          {data.length} {data.length === 1 ? 'result' : 'results'} for "{debouncedQuery}"
-        </p>
-        <ul className="space-y-5">
-          {data.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} trash={false} onSetTagFilter={onSetTagFilter} />
-          ))}
-        </ul>
-      </div>
-    );
-  }
 
   const data = list.data?.pages.flatMap((p) => p.items) ?? [];
+
+  // Auto-paginate until the focused entry is loaded (or we've tried enough).
+  const pagesFetchedRef = useRef(0);
+  useEffect(() => {
+    if (!focusedEntryId) {
+      pagesFetchedRef.current = 0;
+      return;
+    }
+    if (data.some((e) => e.id === focusedEntryId)) return;
+    if (!list.hasNextPage || list.isFetchingNextPage) return;
+    if (pagesFetchedRef.current >= MAX_AUTO_PAGES) {
+      onFocusedEntryConsumed?.();
+      return;
+    }
+    pagesFetchedRef.current += 1;
+    list.fetchNextPage();
+  }, [focusedEntryId, data, list, onFocusedEntryConsumed]);
+
+  if (list.isLoading) {
+    return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  }
+  if (list.error) {
+    return <p className="text-sm text-red-500 dark:text-red-400">Error: {list.error.message}</p>;
+  }
+
   const groups = groupByDay(data);
 
   if (trash && groups.every((g) => g.entries.length === 0)) {
@@ -90,6 +83,8 @@ export function EntryFeed({
           group={group}
           trash={trash}
           onSetTagFilter={onSetTagFilter}
+          focusedEntryId={focusedEntryId}
+          onFocusedEntryConsumed={onFocusedEntryConsumed}
         />
       ))}
       {list.hasNextPage ? (
@@ -108,23 +103,18 @@ export function EntryFeed({
   );
 }
 
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
-
 function DaySection({
   group,
   trash,
   onSetTagFilter,
+  focusedEntryId,
+  onFocusedEntryConsumed,
 }: {
   group: DayGroup;
   trash: boolean;
   onSetTagFilter?: (tagId: string) => void;
+  focusedEntryId?: string | null;
+  onFocusedEntryConsumed?: () => void;
 }) {
   return (
     <section>
@@ -148,7 +138,14 @@ function DaySection({
       ) : (
         <ul className="space-y-5">
           {group.entries.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} trash={trash} onSetTagFilter={onSetTagFilter} />
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              trash={trash}
+              onSetTagFilter={onSetTagFilter}
+              focused={focusedEntryId === entry.id}
+              onFocusedConsumed={onFocusedEntryConsumed}
+            />
           ))}
         </ul>
       )}
@@ -160,12 +157,31 @@ function EntryRow({
   entry,
   trash,
   onSetTagFilter,
+  focused = false,
+  onFocusedConsumed,
 }: {
   entry: EntryWithTags;
   trash: boolean;
   onSetTagFilter?: (tagId: string) => void;
+  focused?: boolean;
+  onFocusedConsumed?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const rootRef = useRef<HTMLLIElement>(null);
+  const [pulse, setPulse] = useState(false);
+
+  useEffect(() => {
+    if (!focused) return;
+    const node = rootRef.current;
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setPulse(true);
+    const t = setTimeout(() => {
+      setPulse(false);
+      onFocusedConsumed?.();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [focused, onFocusedConsumed]);
   const utils = trpc.useUtils();
   const toast = useToast();
 
@@ -186,9 +202,12 @@ function EntryRow({
   });
 
   const muted = trash ? 'opacity-60' : '';
+  const pulseClass = pulse
+    ? 'rounded-lg ring-2 ring-amber-300 ring-offset-2 ring-offset-white transition-shadow dark:ring-amber-500/60 dark:ring-offset-gray-950'
+    : 'transition-shadow';
 
   return (
-    <li className={`group flex gap-6 ${muted}`}>
+    <li ref={rootRef} className={`group flex gap-6 scroll-mt-24 ${muted} ${pulseClass}`}>
       <span className="mt-0.5 w-12 shrink-0 font-mono text-xs text-gray-400 dark:text-gray-500">
         {formatTime(entry.createdAt)}
       </span>
