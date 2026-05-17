@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:4853",
     "beforeDevCommand": "JOTT_BUNDLED=true bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeBuildCommand": "bun run build:backend"
   },
   "app": {
     "windows": [],

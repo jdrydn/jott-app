@@ -16,7 +16,7 @@
     "dev:backend": "bun --watch backend/index.ts",
     "dev:frontend": "bun --bun vite",
     "build": "bun scripts/build.ts",
-    "build:backend": "bun build --compile --target=bun-darwin-arm64 ./backend/index.ts --outfile tauri/binaries/hono-server-aarch64-apple-darwin",
+    "build:backend": "bun scripts/build.ts --target=bun-darwin-arm64 --outfile=tauri/binaries/hono-server-aarch64-apple-darwin",
     "build:frontend": "bun --bun vite build",
     "preview": "bun --bun vite preview",
     "start": "bun backend/index.ts",
