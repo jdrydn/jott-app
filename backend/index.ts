@@ -3,7 +3,7 @@ import { detectClaude } from './ai/claude';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
 import { defaultAttachmentsDir, sweepOrphanAttachments } from './data/attachments';
 import { backupDb, readBackupOnQuitSettings } from './data/backup';
-import { openDb } from './db/client';
+import { clearDbFiles, openDb } from './db/client';
 import { seedDemoData } from './db/seed';
 import { openBrowser } from './openBrowser';
 import { createApp, PortInUseError, serveApp } from './server';
@@ -19,6 +19,20 @@ function main(): void {
       process.exit(err.code);
     }
     throw err;
+  }
+
+  if (opts.clearDb) {
+    const answer = prompt(`This will delete ${opts.dbPath} and recreate it. Type 'y' to confirm:`);
+    if ((answer ?? '').trim().toLowerCase() !== 'y') {
+      process.stdout.write('aborted — db not cleared\n');
+      process.exit(0);
+    }
+    const { deleted } = clearDbFiles(opts.dbPath);
+    if (deleted.length > 0) {
+      process.stdout.write(`cleared ${deleted.length} file(s) at ${opts.dbPath}\n`);
+    } else {
+      process.stdout.write(`db at ${opts.dbPath} did not exist — nothing to clear\n`);
+    }
   }
 
   const dbHandle = openDb(opts.dbPath);

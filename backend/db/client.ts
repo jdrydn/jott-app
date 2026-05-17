@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from './migrate';
@@ -27,4 +27,22 @@ export function openDb(path: string): DbHandle {
     raw,
     close: () => raw.close(),
   };
+}
+
+// Removes the SQLite file and its WAL/SHM sidecars. Caller is responsible for
+// closing any open handles first. ENOENT is treated as a no-op so calling
+// against a non-existent path is safe.
+export function clearDbFiles(path: string): { deleted: string[] } {
+  const deleted: string[] = [];
+  if (path === ':memory:') return { deleted };
+  for (const suffix of ['', '-wal', '-shm']) {
+    const target = `${path}${suffix}`;
+    try {
+      unlinkSync(target);
+      deleted.push(target);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
+  }
+  return { deleted };
 }

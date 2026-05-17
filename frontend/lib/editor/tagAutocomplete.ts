@@ -118,9 +118,9 @@ function renderMenu(opts: {
       onPick(i);
     });
     const avatar = document.createElement('span');
-    avatar.className = 'jott-tag-menu__avatar';
-    avatar.textContent = item.initials;
-    avatar.style.backgroundColor = item.color;
+    avatar.className = 'jott-tag-menu__sigil';
+    avatar.textContent = sigil;
+    avatar.style.color = item.color;
     btn.appendChild(avatar);
     const label = document.createElement('span');
     label.className = 'jott-tag-menu__label';
@@ -182,13 +182,21 @@ export const TagAutocomplete = Extension.create<TagAutocompleteOptions>({
 
     const insertTag = (id: string) => {
       const { from, to } = currentRange;
-      const nodeType = editor.schema.nodes.tag;
+      const schema = editor.schema;
+      const nodeType = schema.nodes.tag;
       if (!nodeType) {
         console.error('jott: TagNode extension not registered');
         close();
         return;
       }
-      const tr = editor.view.state.tr.replaceWith(from, to, nodeType.create({ id }));
+      const tagNode = nodeType.create({ id });
+      // Append a trailing space so the user can keep typing — unless the next
+      // char is already whitespace (cursor mid-string), to avoid doubling.
+      const state = editor.view.state;
+      const nextChar = state.doc.textBetween(to, Math.min(to + 1, state.doc.content.size));
+      const isWhitespace = nextChar.length > 0 && /\s/.test(nextChar);
+      const replacement = isWhitespace ? [tagNode] : [tagNode, schema.text(' ')];
+      const tr = state.tr.replaceWith(from, to, replacement);
       editor.view.dispatch(tr);
       close();
     };

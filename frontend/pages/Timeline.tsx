@@ -5,6 +5,7 @@ import { Composer, type ComposerHandle } from '../components/Composer';
 import { EntryFeed } from '../components/EntryFeed';
 import { FilterBar, type Filters } from '../components/FilterBar';
 import { Header } from '../components/Header';
+import { SearchResults } from '../components/SearchResults';
 import { Sidebar } from '../components/Sidebar';
 import { trpc } from '../trpc';
 
@@ -15,8 +16,11 @@ export function Timeline() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<Filters>({});
   const [aiAction, setAiAction] = useState<AiAction | null>(null);
+  const [focusedEntryId, setFocusedEntryId] = useState<string | null>(null);
   const profile = trpc.profile.get.useQuery();
   const noProfile = profile.isSuccess && profile.data === null;
+
+  const isSearching = searchQuery.trim().length > 0 && !trash;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -51,26 +55,41 @@ export function Timeline() {
       {noProfile ? <NoProfileBanner /> : null}
       <div className="flex gap-12 border-t border-gray-200 py-8 dark:border-gray-800">
         <main className="min-w-0 flex-1">
-          {trash || searchQuery ? null : <Composer ref={composerRef} />}
+          {trash || isSearching ? null : <Composer ref={composerRef} />}
           {trash ? <TrashBanner /> : null}
-          {trash || searchQuery ? null : (
+          {trash || isSearching ? null : (
             <>
               <FilterBar filters={filters} onChange={setFilters} />
               <AiBar onLaunch={setAiAction} />
             </>
           )}
-          <EntryFeed
-            trash={trash}
-            searchQuery={searchQuery}
-            filters={trash || searchQuery ? {} : filters}
-            onSetTagFilter={(tagId) => setFilters((f) => ({ ...f, tagId }))}
-          />
+          {isSearching ? (
+            <SearchResults
+              query={searchQuery}
+              onPickTag={(tagId) => {
+                setFilters((f) => ({ ...f, tagId }));
+                setSearchQuery('');
+              }}
+              onPickEntry={(entryId) => {
+                setFocusedEntryId(entryId);
+                setSearchQuery('');
+              }}
+            />
+          ) : (
+            <EntryFeed
+              trash={trash}
+              filters={trash ? {} : filters}
+              onSetTagFilter={(tagId) => setFilters((f) => ({ ...f, tagId }))}
+              focusedEntryId={focusedEntryId}
+              onFocusedEntryConsumed={() => setFocusedEntryId(null)}
+            />
+          )}
         </main>
         <aside className="w-64 shrink-0">
           <Sidebar
-            activeTagId={trash || searchQuery ? undefined : filters.tagId}
+            activeTagId={trash || isSearching ? undefined : filters.tagId}
             onSetTagFilter={
-              trash || searchQuery ? undefined : (tagId) => setFilters((f) => ({ ...f, tagId }))
+              trash || isSearching ? undefined : (tagId) => setFilters((f) => ({ ...f, tagId }))
             }
             trash={trash}
             onToggleTrash={() => setTrash((v) => !v)}
