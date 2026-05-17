@@ -5,6 +5,7 @@ import { DriverIcon } from './DriverIcon';
 
 export function AiBar({ onLaunch }: { onLaunch: (action: AiAction) => void }) {
   const status = trpc.ai.status.useQuery();
+  if (status.data && status.data.driver === '') return null;
   const enabled = status.data?.enabled === true;
 
   return (

@@ -5,8 +5,9 @@ import { publicProcedure, router } from '../trpc';
 
 // Empty defaults mean "let the driver fall back to its own default".
 // e.g. claude with no CLAUDE_CONFIG_DIR uses ~/.claude implicitly.
+// `ai.driver` empty by default — the user must pick one in Settings.
 export const SETTING_DEFAULTS = {
-  'ai.driver': 'claude',
+  'ai.driver': '',
   'ai.claude.config-dir': '',
   'ai.claude.model': 'sonnet',
   'backup.onQuit': 'false',

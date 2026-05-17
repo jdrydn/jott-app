@@ -44,10 +44,10 @@ A frictionless personal journal where every **entry** is timestamped at creation
 One command. Flags, no subcommands.
 
 ```sh
-jottapp                       # start server, open browser
-jottapp --port 4853           # override port (default: 4853)
-jottapp --no-open             # don't auto-open browser
-jottapp --db /path/to.db      # override DB location
+jottapp                       # start server (does not open browser)
+jottapp --port 4853           # override port (default: 4853, 0 = random)
+jottapp --open                # auto-open the browser on start
+jottapp --data-dir /path/dir  # override data dir (DB + attachments)
 jottapp --version
 jottapp --help
 ```
@@ -171,7 +171,7 @@ Hidden in the web UI entirely — implementation detail for the data layer.
 - **Engine:** SQLite.
 - **Driver:** `bun:sqlite` (Bun built-in).
 - **ORM / query builder:** Drizzle (`drizzle-orm/bun-sqlite`). Schemas defined in TS, queries fully typed.
-- **DB location:** `$XDG_DATA_HOME/jottapp/jottapp.db` (Linux/macOS) or `%APPDATA%\jottapp\jottapp.db` (Windows). Overridable via `JOTTAPP_DB` env or `--db` flag.
+- **Data dir:** `$XDG_DATA_HOME/jottapp/` (Linux/macOS) or `%APPDATA%\jottapp\` (Windows), containing `jottapp.db` and `attachments/`. Overridable via `JOTT_DATA_DIR` env or `--data-dir` flag.
 - **Schema:** `entries`, `entry_fts` (FTS5 virtual table over `entries.body`), `tags`, `entry_tags` (join), `profile`, `settings`.
 - **Migrations:** `PRAGMA user_version` pattern with one `.sql` file per version. Migrations live in `backend/db/migrations/0001_init.sql`, `0002_*.sql`, etc. A `migrations/index.ts` statically imports each as a raw string (Vite/Bun support `?raw`) and exports them in order — so `bun build --compile` embeds them automatically, no runtime folder reads. Runner (~15 LOC): read `PRAGMA user_version`, apply newer migrations in order, bump `user_version` after each. Drizzle owns query building; we own migration application.
 
@@ -350,7 +350,7 @@ Gated — each leaves a working, runnable binary.
 - **UI data fetching:** `@trpc/react-query` (React Query under the hood)
 - **Editor:** TipTap
 - **Markdown:** TipTap's built-in serializer + `marked` for any one-shot rendering needs
-- **CLI args:** hand-rolled flag parsing (only `--port`, `--no-open`, `--db`, `--version`, `--help`). Subcommand router deferred to M8.
+- **CLI args:** hand-rolled flag parsing (only `--port`, `--open`, `--data-dir`, `--version`, `--help`). Subcommand router deferred to M8.
 - **Testing:** `bun test` (unit), Playwright (e2e against the web UI in M1+)
 - **Lint/format:** Biome (faster, single tool) — or ESLint + Prettier if Biome lacks something we need
 - **CI:** GitHub Actions — lint, typecheck, test, build matrix
@@ -471,7 +471,7 @@ _(Open questions section is empty — all resolved. New ones land here.)_
 | 2026-05-15 | Real client-side router via wouter (already a dep)                        | Three pages now: `/start`, `/timeline`, `/settings`. Lighter than react-router; matches the `Link` UX we want |
 | 2026-05-15 | `/` decides destination from profile presence; `/timeline` shows banner if no profile | Direct nav to `/timeline` shouldn't lose the "set your name" prompt; redirect-on-root keeps the cold-start UX clean |
 | 2026-05-15 | Settings split: `profile` (singleton) for personalisation, `settings` (k/v) for app config | Theme + name are per-user identity; `claude.binary` etc. are app-wide config — different shapes deserve different tables |
-| 2026-05-15 | `db.path` is read-only in the UI (set at startup via `--db`/`JOTTAPP_DB`) | Changing the path mid-session would orphan the open DB handle; the setting screen surfaces it but doesn't pretend it's editable |
+| 2026-05-15 | `db.path` is read-only in the UI (set at startup via `--data-dir`/`JOTT_DATA_DIR`) | Changing the path mid-session would orphan the open DB handle; the setting screen surfaces it but doesn't pretend it's editable |
 | 2026-05-15 | Dark mode via class-based `dark:` variants, applied to `<html>` from React | Tailwind v4 `@custom-variant dark (&:where(.dark, .dark *))`; `useApplyTheme` listens to `prefers-color-scheme` for `system` |
 | 2026-05-15 | Settings registry shape: object `{ key: defaultValue }`, not array of valid keys  | New keys auto-merge into `getAll`; `getAll` always returns a fully-populated map (no nullable values for known keys) |
 | 2026-05-15 | Driver pattern under `ai.driver` (default `claude`); per-driver config under `ai.<driver>.*` | Replaces the older `claude.binary` / `claude.model` / `claude.maxEntries` keys; future drivers slot in without churning the AI procedures |

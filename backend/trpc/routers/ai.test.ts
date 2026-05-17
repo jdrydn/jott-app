@@ -32,8 +32,18 @@ function setup(claude: ClaudeDetection) {
 }
 
 describe('ai.status', () => {
-  test('disabled when claude is not on PATH', async () => {
+  test('disabled with reason "no driver selected" when ai.driver is unset', async () => {
+    const caller = setup(CLAUDE_ON);
+    const status = await caller.ai.status();
+    expect(status.driver).toBe('');
+    expect(status.enabled).toBe(false);
+    expect(status.reason).toMatch(/no ai driver selected/i);
+    expect(status.binaryPath).toBeNull();
+  });
+
+  test('disabled when driver=claude but claude is not on PATH', async () => {
     const caller = setup(CLAUDE_OFF);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     const status = await caller.ai.status();
     expect(status.driver).toBe('claude');
     expect(status.enabled).toBe(false);
@@ -44,6 +54,7 @@ describe('ai.status', () => {
 
   test('enabled when claude is detected and driver is claude', async () => {
     const caller = setup(CLAUDE_ON);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     const status = await caller.ai.status();
     expect(status.enabled).toBe(true);
     expect(status.driver).toBe('claude');
@@ -54,6 +65,7 @@ describe('ai.status', () => {
 
   test('reflects ai.claude.model override', async () => {
     const caller = setup(CLAUDE_ON);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     await caller.settings.set({ key: 'ai.claude.model', value: 'opus' });
     const status = await caller.ai.status();
     expect(status.model).toBe('opus');
@@ -97,8 +109,15 @@ describe('ai.slicePreview', () => {
 });
 
 describe('ai.summarise (precondition checks)', () => {
-  test('rejects when claude is not available', async () => {
+  test('rejects when no ai driver is selected (default)', async () => {
+    const caller = setup(CLAUDE_ON);
+    await caller.entries.create({ body: 'something' });
+    await expect(caller.ai.summarise({})).rejects.toThrow(/no ai driver selected/i);
+  });
+
+  test('rejects when driver=claude but claude binary is not available', async () => {
     const caller = setup(CLAUDE_OFF);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     await caller.entries.create({ body: 'something' });
     await expect(caller.ai.summarise({})).rejects.toThrow(/not found/i);
   });
@@ -112,6 +131,7 @@ describe('ai.summarise (precondition checks)', () => {
 
   test('rejects when no entries match the window', async () => {
     const caller = setup(CLAUDE_ON);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     // No entries seeded at all.
     await expect(caller.ai.summarise({})).rejects.toThrow(/no entries/i);
   });
@@ -120,6 +140,7 @@ describe('ai.summarise (precondition checks)', () => {
 describe('ai.ask (validation)', () => {
   test('rejects empty question', async () => {
     const caller = setup(CLAUDE_ON);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     await caller.entries.create({ body: 'x' });
     // biome-ignore lint/suspicious/noExplicitAny: invalid input by design
     await expect(caller.ai.ask({ q: '' } as any)).rejects.toThrow();
@@ -127,6 +148,7 @@ describe('ai.ask (validation)', () => {
 
   test('rejects oversized question', async () => {
     const caller = setup(CLAUDE_ON);
+    await caller.settings.set({ key: 'ai.driver', value: 'claude' });
     await caller.entries.create({ body: 'x' });
     await expect(caller.ai.ask({ q: 'x'.repeat(2001) })).rejects.toThrow();
   });

@@ -5,8 +5,9 @@ describe('parseCliArgs', () => {
   test('defaults: no args, no env', () => {
     const opts = parseCliArgs([], {});
     expect(opts.port).toBe(DEFAULT_PORT);
-    expect(opts.open).toBe(true);
-    expect(opts.dbPath).toMatch(/jottapp\.db$/);
+    expect(opts.open).toBe(false);
+    expect(opts.dataDir).toMatch(/jottapp$/);
+    expect(opts.dbPath).toMatch(/jottapp\/jottapp\.db$|jottapp\\jottapp\.db$/);
     expect(opts.seedDb).toBe(false);
     expect(opts.clearDb).toBe(false);
   });
@@ -39,33 +40,39 @@ describe('parseCliArgs', () => {
 
   test.each([
     ['abc', /invalid --port/],
-    ['0', /invalid --port/],
     ['70000', /invalid --port/],
     ['4853.5', /invalid --port/],
   ])('invalid --port "%s" rejected', (input, match) => {
     expect(() => parseCliArgs(['--port', input], {})).toThrow(match);
   });
 
+  test('--port 0 is accepted (request random port)', () => {
+    expect(parseCliArgs(['--port', '0'], {}).port).toBe(0);
+  });
+
   test('--port=-1 rejected as negative', () => {
     expect(() => parseCliArgs(['--port=-1'], {})).toThrow(/invalid --port/);
   });
 
-  test('--no-open disables auto-open', () => {
-    expect(parseCliArgs(['--no-open'], {}).open).toBe(false);
+  test('--open opts in to auto-open', () => {
+    expect(parseCliArgs(['--open'], {}).open).toBe(true);
   });
 
-  test('--db overrides default', () => {
-    expect(parseCliArgs(['--db', '/tmp/foo.db'], {}).dbPath).toBe('/tmp/foo.db');
+  test('--data-dir sets the data directory', () => {
+    const opts = parseCliArgs(['--data-dir', '/tmp/data'], {});
+    expect(opts.dataDir).toBe('/tmp/data');
+    expect(opts.dbPath).toBe('/tmp/data/jottapp.db');
   });
 
-  test('--db flag wins over JOTTAPP_DB', () => {
-    expect(parseCliArgs(['--db', '/tmp/flag.db'], { JOTTAPP_DB: '/tmp/env.db' }).dbPath).toBe(
-      '/tmp/flag.db',
-    );
+  test('--data-dir flag wins over JOTT_DATA_DIR', () => {
+    const opts = parseCliArgs(['--data-dir', '/tmp/flag'], { JOTT_DATA_DIR: '/tmp/env' });
+    expect(opts.dataDir).toBe('/tmp/flag');
   });
 
-  test('JOTTAPP_DB env used when no flag', () => {
-    expect(parseCliArgs([], { JOTTAPP_DB: '/tmp/env.db' }).dbPath).toBe('/tmp/env.db');
+  test('JOTT_DATA_DIR env used when no flag', () => {
+    const opts = parseCliArgs([], { JOTT_DATA_DIR: '/tmp/env' });
+    expect(opts.dataDir).toBe('/tmp/env');
+    expect(opts.dbPath).toBe('/tmp/env/jottapp.db');
   });
 
   test('--help exits 0 with help text', () => {
@@ -75,6 +82,7 @@ describe('parseCliArgs', () => {
     expect((thrown as CliExit).output).toContain('jottapp');
     expect((thrown as CliExit).output).toContain('Usage:');
     expect((thrown as CliExit).output).toContain('--clear-db');
+    expect((thrown as CliExit).output).toContain('--data-dir');
   });
 
   test('-h is alias for --help', () => {

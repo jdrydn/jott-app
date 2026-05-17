@@ -1,12 +1,14 @@
 import { parseArgs } from 'node:util';
+import { join } from 'node:path';
 import { VERSION } from '@shared/version';
-import { defaultDbPath } from './paths';
+import { defaultDataDir } from './paths';
 
 export const DEFAULT_PORT = 4853;
 
 export type CliOptions = {
   port: number;
   open: boolean;
+  dataDir: string;
   dbPath: string;
   seedDb: boolean;
   clearDb: boolean;
@@ -28,9 +30,9 @@ Usage:
   jottapp [options]
 
 Options:
-  --port <number>     Server port (default: ${DEFAULT_PORT}, env: JOTTAPP_PORT)
-  --no-open           Don't auto-open the browser on start
-  --db <path>         SQLite database location (env: JOTTAPP_DB)
+  --port <number>     Server port (default: ${DEFAULT_PORT}, env: JOTTAPP_PORT, 0 = random)
+  --open              Auto-open the browser on start
+  --data-dir <path>   Data directory for jottapp.db and attachments/ (env: JOTT_DATA_DIR)
   --seed-db           Seed demo journal data if the database is empty
   --clear-db          Destroy and recreate the database file (prompts y/N)
   -v, --version       Print version and exit
@@ -45,8 +47,8 @@ export function parseCliArgs(
     args: argv,
     options: {
       port: { type: 'string' },
-      'no-open': { type: 'boolean' },
-      db: { type: 'string' },
+      open: { type: 'boolean' },
+      'data-dir': { type: 'string' },
       'seed-db': { type: 'boolean' },
       'clear-db': { type: 'boolean' },
       version: { type: 'boolean', short: 'v' },
@@ -64,16 +66,17 @@ export function parseCliArgs(
   let port = DEFAULT_PORT;
   if (portRaw !== undefined) {
     const n = Number(portRaw);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) {
-      throw new CliExit(2, `error: invalid --port "${portRaw}" — must be 1–65535`);
+    if (!Number.isInteger(n) || n < 0 || n > 65535) {
+      throw new CliExit(2, `error: invalid --port "${portRaw}" — must be 0–65535 (0 = random)`);
     }
     port = n;
   }
 
-  const open = !(values['no-open'] ?? false);
-  const dbPath = values.db ?? env.JOTTAPP_DB ?? defaultDbPath();
+  const open = values.open ?? false;
+  const dataDir = values['data-dir'] ?? env.JOTT_DATA_DIR ?? defaultDataDir();
+  const dbPath = join(dataDir, 'jottapp.db');
   const seedDb = values['seed-db'] ?? false;
   const clearDb = values['clear-db'] ?? false;
 
-  return { port, open, dbPath, seedDb, clearDb };
+  return { port, open, dataDir, dbPath, seedDb, clearDb };
 }

@@ -1,10 +1,12 @@
+import { join } from 'node:path';
 import { defaultColor, defaultInitials, formatTagRef } from '@shared/tags';
 import { ulid } from 'ulid';
 import { openDb } from '../backend/db/client';
 import { entries, tags } from '../backend/db/schema';
 import { reconcileEntryTags } from '../backend/tags/reconcile';
 
-const DB_PATH = process.env.JOTTAPP_DB ?? `${process.cwd()}/jottapp-dev.db`;
+const DATA_DIR = process.env.JOTT_DATA_DIR ?? `${process.cwd()}/.jott-dev`;
+const DB_PATH = join(DATA_DIR, 'jottapp.db');
 
 // Multi-word names exercise the M8 autocomplete-create path. Single-word names
 // stay parseable as bare `@name` tokens too — the reconciler handles both.

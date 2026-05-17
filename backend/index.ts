@@ -1,5 +1,6 @@
+import type { Database } from 'bun:sqlite';
 import { VERSION } from '@shared/version';
-import { detectClaude } from './ai/claude';
+import { type ClaudeDetection, detectClaude } from './ai/claude';
 import { CliExit, type CliOptions, parseCliArgs } from './cli';
 import { defaultAttachmentsDir, sweepOrphanAttachments } from './data/attachments';
 import { backupDb, readBackupOnQuitSettings } from './data/backup';
@@ -68,10 +69,9 @@ function main(): void {
     const handle = serveApp({ port: opts.port, app });
     const openingNote = opts.open ? ' (opening browser…)' : '';
     process.stdout.write(`jottapp v${VERSION} — ${handle.url}${openingNote}\n`);
+    process.stdout.write(`JOTTAPP_READY ${handle.url}\n`);
     process.stdout.write(`db: ${opts.dbPath}\n`);
-    process.stdout.write(
-      `ai: ${claude.available ? `claude detected (${claude.binaryPath})` : 'claude not on PATH — AI features disabled'}\n`,
-    );
+    process.stdout.write(`${aiStatusLine(dbHandle.raw, claude)}\n`);
     process.stdout.write('Press Ctrl+C to stop.\n');
     if (opts.open) openBrowser(handle.url);
   } catch (err) {
@@ -101,6 +101,25 @@ function main(): void {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+}
+
+function readAiDriver(raw: Database): string {
+  const row = raw.query("SELECT value FROM settings WHERE key = 'ai.driver'").get() as
+    | { value: string }
+    | null;
+  return row?.value ?? '';
+}
+
+function aiStatusLine(raw: Database, claude: ClaudeDetection): string {
+  const driver = readAiDriver(raw);
+  if (driver === '') return 'ai: no driver selected 🔴';
+  if (driver === 'claude') {
+    if (claude.available && claude.binaryPath) {
+      return `ai: claude detected (${claude.binaryPath}) 🟢`;
+    }
+    return 'ai: claude not on PATH — AI features disabled 🔴';
+  }
+  return `ai: unknown driver "${driver}" 🔴`;
 }
 
 main();

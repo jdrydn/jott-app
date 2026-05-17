@@ -2,12 +2,9 @@ node_modules/
 dist/
 
 # Build output
-jottapp
-jottapp-*
+.jott-dev/
 !jottapp-*.md
 .*.bun-build
-attachments/
-backups/
 
 # Local SQLite databases
 *.db

@@ -48,6 +48,10 @@ describe('settings.getAll', () => {
     expect(all['ai.claude.model']).toBe('opus');
     expect(all['ai.driver']).toBe(SETTING_DEFAULTS['ai.driver']);
   });
+
+  test('ai.driver defaults to empty (user must opt in)', () => {
+    expect(SETTING_DEFAULTS['ai.driver']).toBe('');
+  });
 });
 
 describe('settings.set', () => {

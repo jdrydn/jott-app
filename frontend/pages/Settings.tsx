@@ -138,10 +138,10 @@ export function Settings() {
     }
   }
 
-  async function copyDbPath() {
+  async function copyDataDir() {
     if (!system.data) return;
     try {
-      await navigator.clipboard.writeText(system.data.dbPath);
+      await navigator.clipboard.writeText(system.data.dataDir);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -213,7 +213,7 @@ export function Settings() {
             <Field
               id="aiDriver"
               label="Driver"
-              hint="Which AI backend to use. Only Claude for now."
+              hint="Pick an AI backend. Leave as “— None —” to disable AI features."
             >
               <select
                 id="aiDriver"
@@ -221,6 +221,7 @@ export function Settings() {
                 onChange={(e) => setAiDriver(e.target.value)}
                 className={inputClasses}
               >
+                <option value="">— None —</option>
                 {DRIVER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
@@ -231,35 +232,39 @@ export function Settings() {
 
             <AiStatusBanner status={aiStatus.data} driver={aiStatus.data?.driver} />
 
-            <Field
-              id="claudeConfigDir"
-              label="Claude config dir"
-              hint="Directory holding Claude Code's session/credentials. Defaults to ~/.claude."
-            >
-              <input
-                id="claudeConfigDir"
-                type="text"
-                value={claudeConfigDir}
-                onChange={(e) => setClaudeConfigDir(e.target.value)}
-                placeholder="~/.claude"
-                className={`${inputClasses} font-mono text-sm`}
-              />
-            </Field>
+            {aiDriver === 'claude' && (
+              <>
+                <Field
+                  id="claudeConfigDir"
+                  label="Claude config dir"
+                  hint="Directory holding Claude Code's session/credentials. Defaults to ~/.claude."
+                >
+                  <input
+                    id="claudeConfigDir"
+                    type="text"
+                    value={claudeConfigDir}
+                    onChange={(e) => setClaudeConfigDir(e.target.value)}
+                    placeholder="~/.claude"
+                    className={`${inputClasses} font-mono text-sm`}
+                  />
+                </Field>
 
-            <Field
-              id="claudeModel"
-              label="Claude model"
-              hint="Passed to claude --model. e.g. sonnet, opus, haiku."
-            >
-              <input
-                id="claudeModel"
-                type="text"
-                value={claudeModel}
-                onChange={(e) => setClaudeModel(e.target.value)}
-                placeholder="sonnet"
-                className={`${inputClasses} font-mono text-sm`}
-              />
-            </Field>
+                <Field
+                  id="claudeModel"
+                  label="Claude model"
+                  hint="Passed to claude --model. e.g. sonnet, opus, haiku."
+                >
+                  <input
+                    id="claudeModel"
+                    type="text"
+                    value={claudeModel}
+                    onChange={(e) => setClaudeModel(e.target.value)}
+                    placeholder="sonnet"
+                    className={`${inputClasses} font-mono text-sm`}
+                  />
+                </Field>
+              </>
+            )}
           </Section>
 
           <Section title="Data" subtitle="Export, import, and snapshot your journal.">
@@ -362,40 +367,34 @@ export function Settings() {
 
           <Section title="System" subtitle="Where the journal lives on disk.">
             <Field
-              id="dbPath"
-              label="Database path"
-              hint="Set at startup. Use --db or JOTTAPP_DB to change."
+              id="dataDir"
+              label="Data directory"
+              hint="Set at startup. Use --data-dir or JOTT_DATA_DIR to change."
             >
               <div className="flex items-center gap-2">
                 <input
-                  id="dbPath"
+                  id="dataDir"
                   type="text"
                   readOnly
-                  value={system.data?.dbPath ?? ''}
+                  value={system.data?.dataDir ?? ''}
                   className={`${inputClasses} font-mono text-sm text-gray-600 dark:text-gray-400`}
                 />
                 <button
                   type="button"
-                  onClick={copyDbPath}
+                  onClick={copyDataDir}
                   className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-            </Field>
-
-            <Field
-              id="attachmentsDir"
-              label="Attachments directory"
-              hint="Sibling of the database file. Image bytes live here, one file per attachment."
-            >
-              <input
-                id="attachmentsDir"
-                type="text"
-                readOnly
-                value={system.data?.attachmentsDir ?? ''}
-                className={`${inputClasses} font-mono text-sm text-gray-600 dark:text-gray-400`}
-              />
+              <ul className="mt-2 list-disc pl-5 text-xs text-gray-500 dark:text-gray-500">
+                <li>
+                  <code className="font-mono">jottapp.db</code> — SQLite database
+                </li>
+                <li>
+                  <code className="font-mono">attachments/</code> — image attachments, one file each
+                </li>
+              </ul>
             </Field>
 
             <p className="text-xs text-gray-500 dark:text-gray-500">jott v{system.data?.version}</p>
