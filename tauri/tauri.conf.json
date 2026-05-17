@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:4853",
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "JOTT_BUNDLED=true bun run dev",
     "beforeBuildCommand": "bun run build"
   },
   "app": {

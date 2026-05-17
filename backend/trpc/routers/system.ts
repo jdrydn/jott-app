@@ -5,8 +5,7 @@ import { publicProcedure, router } from '../trpc';
 export type SystemInfo = {
   version: string;
   dataDir: string;
-  dbPath: string;
-  attachmentsDir: string;
+  bundled: boolean;
 };
 
 export const systemRouter = router({
@@ -14,8 +13,7 @@ export const systemRouter = router({
     return {
       version: VERSION,
       dataDir: dirname(ctx.dbPath),
-      dbPath: ctx.dbPath,
-      attachmentsDir: ctx.attachmentsDir,
+      bundled: process.env.JOTT_BUNDLED === 'true',
     };
   }),
 });

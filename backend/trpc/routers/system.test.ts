@@ -23,12 +23,24 @@ function setup(dbPath: string) {
 }
 
 describe('system.info', () => {
-  test('returns version + dataDir + dbPath + attachmentsDir from context', async () => {
+  test('returns version + dataDir derived from context', async () => {
     const caller = setup('/tmp/jott/jottapp.db');
     const info = await caller.system.info();
     expect(info.version).toBe(VERSION);
     expect(info.dataDir).toBe('/tmp/jott');
-    expect(info.dbPath).toBe('/tmp/jott/jottapp.db');
-    expect(info.attachmentsDir).toBe('/tmp/jottapp-test-attachments');
+    expect(info.bundled).toBe(false);
+  });
+
+  test('reports bundled=true when JOTT_BUNDLED env is set', async () => {
+    const prev = process.env.JOTT_BUNDLED;
+    process.env.JOTT_BUNDLED = 'true';
+    try {
+      const caller = setup('/tmp/jott/jottapp.db');
+      const info = await caller.system.info();
+      expect(info.bundled).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.JOTT_BUNDLED;
+      else process.env.JOTT_BUNDLED = prev;
+    }
   });
 });

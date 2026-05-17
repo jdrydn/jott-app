@@ -369,7 +369,11 @@ export function Settings() {
             <Field
               id="dataDir"
               label="Data directory"
-              hint="Set at startup. Use --data-dir or JOTT_DATA_DIR to change."
+              hint={
+                system.data?.bundled
+                  ? undefined
+                  : 'Set at startup. Use --data-dir or JOTT_DATA_DIR to change.'
+              }
             >
               <div className="flex items-center gap-2">
                 <input
@@ -400,21 +404,29 @@ export function Settings() {
             <p className="text-xs text-gray-500 dark:text-gray-500">jott v{system.data?.version}</p>
           </Section>
 
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-6 dark:border-gray-800">
-            <button
-              type="button"
-              onClick={() => setLocation('/timeline')}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-800">
+            <Link
+              href="/settings/debug"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || isSaving}
-              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
-            >
-              {isSaving ? 'Saving…' : 'Save changes'}
-            </button>
+              Debug
+            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setLocation('/timeline')}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!name.trim() || isSaving}
+                className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
+              >
+                {isSaving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </form>
       )}

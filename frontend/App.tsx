@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
 import { useApplyTheme } from './lib/useTheme';
+import { Debug } from './pages/Debug';
 import { Settings } from './pages/Settings';
 import { Start } from './pages/Start';
 import { Timeline } from './pages/Timeline';
@@ -17,6 +18,7 @@ export function App() {
         <Route path="/start" component={Start} />
         <Route path="/timeline" component={Timeline} />
         <Route path="/settings" component={Settings} />
+        <Route path="/settings/debug" component={Debug} />
         <Route component={RootRedirect} />
       </Switch>
     </div>

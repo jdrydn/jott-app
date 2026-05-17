@@ -8,6 +8,17 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            if cfg!(debug_assertions) {
+                // dev: `bun run dev` (via beforeDevCommand) runs vite + backend.
+                // Window points at devUrl from tauri.conf.json; the sidecar isn't built yet.
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
+                    .title("jott")
+                    .inner_size(1000.0, 800.0)
+                    .resizable(true)
+                    .build()?;
+                return Ok(());
+            }
+
             let app_data_dir = app.path().app_data_dir().unwrap();
             std::fs::create_dir_all(&app_data_dir).ok();
 
