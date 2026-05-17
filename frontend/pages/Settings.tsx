@@ -3,6 +3,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'r
 import { Link, useLocation } from 'wouter';
 import { DriverIcon } from '../components/DriverIcon';
 import { useToast } from '../components/Toast';
+import { applyTheme, useApplyTheme } from '../lib/useTheme';
 import { trpc } from '../trpc';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ProfileTheme; label: string; hint: string }> = [
@@ -60,6 +61,16 @@ export function Settings() {
       setBackupDirValue(settings.data['backup.dir']);
     }
   }, [settings.data]);
+
+  // Live theme preview. On unmount, revert to the saved profile theme if the
+  // user navigated away without saving (read via ref so a mid-session profile
+  // refresh doesn't fire the revert with stale data).
+  useApplyTheme(theme);
+  const savedThemeRef = useRef<ProfileTheme | undefined>(profile.data?.theme);
+  savedThemeRef.current = profile.data?.theme;
+  useEffect(() => {
+    return () => applyTheme(savedThemeRef.current);
+  }, []);
 
   const isLoading =
     profile.isLoading || settings.isLoading || system.isLoading || aiStatus.isLoading;

@@ -11,6 +11,19 @@ html.dark {
   background-color: #030712; /* gray-950 */
 }
 
+/* Strip behind the macOS overlay title bar. Rendered only inside the Tauri
+   webview (see App.tsx) and carries data-tauri-drag-region — Tauri's runtime
+   hooks the mousedown to start native dragging (WKWebView ignores CSS
+   -webkit-app-region). */
+.jott-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5rem;
+  z-index: 100;
+}
+
 .jott-chip {
   --jott-chip-color: #6b7280;
   border-radius: 0.25rem;

@@ -10,6 +10,21 @@
     <meta name="apple-mobile-web-app-title" content="Jott" />
     <link rel="manifest" href="/favicons/site.webmanifest" />
     <title>jott-app</title>
+    <script>
+      // Apply theme before first paint to avoid a light/dark flash. Keep in sync
+      // with applyTheme() in frontend/lib/useTheme.ts — same key, same logic.
+      (function () {
+        try {
+          var pref = localStorage.getItem('jott:theme') || 'system';
+          var dark =
+            pref === 'dark' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add('dark');
+          root.dataset.theme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
     <div id="root"></div>

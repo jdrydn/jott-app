@@ -1,8 +1,26 @@
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
 const READY_PREFIX: &str = "JOTTAPP_READY ";
+
+fn configure_window<'a, R: Runtime, M: Manager<R>>(
+    builder: WebviewWindowBuilder<'a, R, M>,
+) -> WebviewWindowBuilder<'a, R, M> {
+    let builder = builder
+        .title("jott")
+        .inner_size(1280.0, 860.0)
+        .min_inner_size(900.0, 600.0)
+        .resizable(true);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(16.0, 20.0));
+
+    builder
+}
 
 fn main() {
     tauri::Builder::default()
@@ -11,11 +29,12 @@ fn main() {
             if cfg!(debug_assertions) {
                 // dev: `bun run dev` (via beforeDevCommand) runs vite + backend.
                 // Window points at devUrl from tauri.conf.json; the sidecar isn't built yet.
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("/".into()))
-                    .title("jott")
-                    .inner_size(1000.0, 800.0)
-                    .resizable(true)
-                    .build()?;
+                configure_window(WebviewWindowBuilder::new(
+                    app,
+                    "main",
+                    WebviewUrl::App("/".into()),
+                ))
+                .build()?;
                 return Ok(());
             }
 
@@ -52,12 +71,12 @@ fn main() {
                             continue;
                         }
                     };
-                    if let Err(e) =
-                        WebviewWindowBuilder::new(&handle, "main", WebviewUrl::External(parsed))
-                            .title("jott")
-                            .inner_size(1000.0, 800.0)
-                            .resizable(true)
-                            .build()
+                    if let Err(e) = configure_window(WebviewWindowBuilder::new(
+                        &handle,
+                        "main",
+                        WebviewUrl::External(parsed),
+                    ))
+                    .build()
                     {
                         eprintln!("failed to build main window: {e}");
                         continue;

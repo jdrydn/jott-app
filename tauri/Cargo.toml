@@ -1,10 +1,10 @@
 [package]
-name = "app"
+name = "jott"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Jot it down."
+authors = ["jdrydn <james@jdrydn.com>"]
+license = "SEE LICENSE IN ../LICENSE"
+repository = "https://github.com/jdrydn/jott-app"
 edition = "2021"
 rust-version = "1.77.2"
 
