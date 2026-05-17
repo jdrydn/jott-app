@@ -9,6 +9,7 @@ export type CliOptions = {
   open: boolean;
   dbPath: string;
   seedDb: boolean;
+  clearDb: boolean;
 };
 
 export class CliExit extends Error {
@@ -31,6 +32,7 @@ Options:
   --no-open           Don't auto-open the browser on start
   --db <path>         SQLite database location (env: JOTTAPP_DB)
   --seed-db           Seed demo journal data if the database is empty
+  --clear-db          Destroy and recreate the database file (prompts y/N)
   -v, --version       Print version and exit
   -h, --help          Print this help and exit
 `;
@@ -46,6 +48,7 @@ export function parseCliArgs(
       'no-open': { type: 'boolean' },
       db: { type: 'string' },
       'seed-db': { type: 'boolean' },
+      'clear-db': { type: 'boolean' },
       version: { type: 'boolean', short: 'v' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -70,6 +73,7 @@ export function parseCliArgs(
   const open = !(values['no-open'] ?? false);
   const dbPath = values.db ?? env.JOTTAPP_DB ?? defaultDbPath();
   const seedDb = values['seed-db'] ?? false;
+  const clearDb = values['clear-db'] ?? false;
 
-  return { port, open, dbPath, seedDb };
+  return { port, open, dbPath, seedDb, clearDb };
 }

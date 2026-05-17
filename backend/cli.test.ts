@@ -8,10 +8,21 @@ describe('parseCliArgs', () => {
     expect(opts.open).toBe(true);
     expect(opts.dbPath).toMatch(/jottapp\.db$/);
     expect(opts.seedDb).toBe(false);
+    expect(opts.clearDb).toBe(false);
   });
 
   test('--seed-db enables demo seeding', () => {
     expect(parseCliArgs(['--seed-db'], {}).seedDb).toBe(true);
+  });
+
+  test('--clear-db opts in to db wipe', () => {
+    expect(parseCliArgs(['--clear-db'], {}).clearDb).toBe(true);
+  });
+
+  test('--clear-db + --seed-db can combine', () => {
+    const opts = parseCliArgs(['--clear-db', '--seed-db'], {});
+    expect(opts.clearDb).toBe(true);
+    expect(opts.seedDb).toBe(true);
   });
 
   test('--port overrides default', () => {
@@ -63,6 +74,7 @@ describe('parseCliArgs', () => {
     expect((thrown as CliExit).code).toBe(0);
     expect((thrown as CliExit).output).toContain('jottapp');
     expect((thrown as CliExit).output).toContain('Usage:');
+    expect((thrown as CliExit).output).toContain('--clear-db');
   });
 
   test('-h is alias for --help', () => {
