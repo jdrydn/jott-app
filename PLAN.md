@@ -1,7 +1,7 @@
 # jott-app — Plan
 
 > "Jot it down" — standalone, offline-first, timestamped journal application.
-> Single-binary CLI that bundles a local web UI. Electron later, maybe.
+> Single-binary CLI that bundles a local web UI; also distributed as a macOS .app via Tauri.
 
 Source of truth for what we're building, why, and in what order. Open questions live at the bottom until resolved, then move into the relevant section. A running decisions log lives at the end.
 
@@ -14,7 +14,7 @@ A frictionless personal journal where every **entry** is timestamped at creation
 (The verb stays "jot it down" — the brand. The data primitive is `Entry`.)
 
 **Shape v1:** single Bun-compiled binary, ships its own web server + bundled UI. Web UI is the only interface.
-**Shape v2 (later, optional):** wrap the same web UI in Electron for native install / system tray / auto-update.
+**Shape v2 (shipped M9):** macOS .app via Tauri 2 — the same Bun binary runs as a sidecar with a WKWebView frontend pointing at it. No separate codebase.
 **Shape v3 (later, optional):** add CLI subcommands (`jottapp new`, `jottapp list`, etc.) for terminal-native capture and scripting.
 
 **Anti-goals:**
@@ -175,8 +175,6 @@ Hidden in the web UI entirely — implementation detail for the data layer.
 - **Schema:** `entries`, `entry_fts` (FTS5 virtual table over `entries.body`), `tags`, `entry_tags` (join), `profile`, `settings`.
 - **Migrations:** `PRAGMA user_version` pattern with one `.sql` file per version. Migrations live in `backend/db/migrations/0001_init.sql`, `0002_*.sql`, etc. A `migrations/index.ts` statically imports each as a raw string (Vite/Bun support `?raw`) and exports them in order — so `bun build --compile` embeds them automatically, no runtime folder reads. Runner (~15 LOC): read `PRAGMA user_version`, apply newer migrations in order, bump `user_version` after each. Drizzle owns query building; we own migration application.
 
-Future Electron migration: Drizzle schema is portable; swap `drizzle-orm/bun-sqlite` for `drizzle-orm/better-sqlite3`. Same SQL, same types.
-
 Encryption is deferred — relying on OS disk encryption (FileVault / BitLocker / LUKS) for v1.
 
 ---
@@ -318,20 +316,25 @@ Gated — each leaves a working, runnable binary.
 - Markdown export emits `@name <!-- Tag: ULID -->` per chip + a `## Tags` table at the bottom (id/type/name/initials/color). Import upserts tags by id (with `(type, name)` collision-suffixing), rewrites comment-anchored tokens back to canonical markers, then reconciles.
 - `scripts/seed-30d.ts` pre-seeds 12 people (including multi-word names like "James Dryden") + 15 topics, then references them by ULID. Yesterday-back, leaving today empty for the first real jott.
 
-### M9 — Formal releases
+### M9 — macOS app (Tauri shell) ✓ shipped 2026-05-17
+- New `tauri/` crate bundles the Hono/Bun backend as a Tauri 2 sidecar; a WKWebView opens onto the sidecar's URL. macOS `.app` via `tauri build`. In dev the window goes straight to vite's `devUrl` and the sidecar isn't spawned. Cargo crate renamed `app` → `jott` so the Dock label and "About / Hide / Quit jott" pick up the right name.
+- Sidecar boots with `JOTT_BUNDLED=true`, `JOTT_DATA_DIR=<app data dir>`, `JOTTAPP_PORT=0` (OS-assigned). Backend prints a `JOTTAPP_READY <url>` sentinel; Rust parses stdout to learn the bound URL and constructs the window from it. Avoids port collisions; decouples Rust from backend internals.
+- Backend CLI overhauled: `--data-dir <path>` replaces `--db`, backed by `JOTT_DATA_DIR` env. DB lives at `<dataDir>/jottapp.db`, attachments at `<dataDir>/attachments/`. `--port 0` accepted. Browser auto-open flipped to opt-in (`--open`); `--no-open` retired. `defaultDataDir()` returns a directory rather than a file path.
+- macOS chrome via a `configure_window` helper: overlay title bar, hidden title, traffic-light at (16, 20), 1280×860 default with 900×600 min. Fixed `.jott-titlebar` strip with `data-tauri-drag-region` gives the WKWebView a draggable handle; `core:window:allow-start-dragging` added to the default capability (not in `core:default` — `data-tauri-drag-region` is silently a no-op without it).
+- AI defaults reset: `ai.driver` empty out of the box — user picks one in Settings or via the rewritten Start onboarding (now also picks Theme). The AI bar hides on Timeline when no driver is set; Claude config fields only render when `driver === 'claude'`; AI mutations throw `PRECONDITION_FAILED` with "no ai driver selected" when empty. Startup logs 🟢/🔴 next to the `ai:` line.
+- Theme FOUC fix: inline boot script in `index.html` reads `localStorage['jott:theme']` and toggles `.dark` on `<html>` before first paint. `applyTheme()` persists on every change; `useApplyTheme()` bails on `undefined` so it can't override the boot script during the profile-loading window. Start + Settings live-preview theme as the radio changes; Settings reverts on cancel via a ref-captured saved value.
+- Settings: System section collapsed to one Data directory field with a bullet list (`jottapp.db`, `attachments/`); the "Set at startup" hint is suppressed when `system.info.bundled` (it's misleading in the Tauri shell). New `/settings/debug` page lists every setting + `system.info` field with friendly labels, linked from the Settings footer.
+- Slash menu (image picker) portals into `<body>` with `position: fixed` — matches the tag autocomplete pattern, no longer clipped by the composer's `overflow: hidden`.
+
+### M10 — Formal releases
 - Cross-compile binaries (macOS arm64/x64, Linux x64/arm64, Windows x64)
 - GitHub Releases via Actions
 - `npm i -g jottapp` channel
 - README polish, `--help` quality, a simple landing page
 
-### M10 — Releases via Homebreak
+### M11 — Releases via Homebrew
 - Homebrew tap repository `jottapp/setup/jottapp`
 - Updating when new releases to main repo are published
-
-### M11 — Electron wrapper (long-haul stretch)
-- Wrap the same web app in Electron for native install + tray + auto-update
-- Swap Drizzle driver from `bun-sqlite` → `better-sqlite3` (one import change, schema unchanged)
-- Hono runs under Node inside Electron's main process, serves the same renderer
 
 ### M-future — sync, mobile, encryption
 - Re-evaluate once v1 is in your hands.
