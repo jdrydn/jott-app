@@ -1,6 +1,6 @@
 import type { Subprocess } from 'bun';
 
-const DEV_DB = process.env.JOTTAPP_DB ?? `${process.cwd()}/jottapp-dev.db`;
+const DEV_DATA_DIR = process.env.JOTT_DATA_DIR ?? `${process.cwd()}/.jott-dev`;
 const BACKEND_DEV_PORT = '4854';
 
 const procs: Subprocess[] = [];
@@ -21,9 +21,8 @@ const backend = launch([
   'backend/index.ts',
   '--port',
   BACKEND_DEV_PORT,
-  '--db',
-  DEV_DB,
-  '--no-open',
+  '--data-dir',
+  DEV_DATA_DIR,
   ...forwarded,
 ]);
 const frontend = launch(['bun', '--bun', 'vite']);

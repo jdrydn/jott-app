@@ -74,10 +74,17 @@ type ActiveAi = {
 
 function requireActiveAi(ctx: Context): ActiveAi {
   const s = readSettings(ctx);
-  if (s['ai.driver'] !== 'claude') {
+  const driver = s['ai.driver'];
+  if (driver === '') {
     throw new TRPCError({
       code: 'PRECONDITION_FAILED',
-      message: `unknown ai driver: ${s['ai.driver']}`,
+      message: 'no ai driver selected',
+    });
+  }
+  if (driver !== 'claude') {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: `unknown ai driver: ${driver}`,
     });
   }
   if (!ctx.claude.available || !ctx.claude.binaryPath) {
@@ -133,6 +140,16 @@ export const aiRouter = router({
     const driver = s['ai.driver'];
     const model = s['ai.claude.model'];
 
+    if (driver === '') {
+      return {
+        driver,
+        enabled: false,
+        reason: 'no ai driver selected',
+        model,
+        binaryPath: null,
+        version: null,
+      };
+    }
     if (driver !== 'claude') {
       return {
         driver,

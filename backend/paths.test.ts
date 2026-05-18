@@ -1,34 +1,33 @@
 import { describe, expect, test } from 'bun:test';
-import { defaultDbPath } from './paths';
+import { defaultDataDir } from './paths';
 
-describe('defaultDbPath', () => {
+describe('defaultDataDir', () => {
   test('linux/macOS: XDG_DATA_HOME', () => {
-    const path = defaultDbPath({
+    const dir = defaultDataDir({
       platform: 'linux',
       home: '/home/u',
       env: { XDG_DATA_HOME: '/data' },
     });
-    expect(path).toBe('/data/jottapp/jottapp.db');
+    expect(dir).toBe('/data/jottapp');
   });
 
   test('linux/macOS: falls back to ~/.local/share', () => {
-    const path = defaultDbPath({ platform: 'darwin', home: '/Users/u', env: {} });
-    expect(path).toBe('/Users/u/.local/share/jottapp/jottapp.db');
+    const dir = defaultDataDir({ platform: 'darwin', home: '/Users/u', env: {} });
+    expect(dir).toBe('/Users/u/.local/share/jottapp');
   });
 
   test('win32: APPDATA', () => {
-    const path = defaultDbPath({
+    const dir = defaultDataDir({
       platform: 'win32',
       home: 'C:\\Users\\u',
       env: { APPDATA: 'C:\\Users\\u\\AppData\\Roaming' },
     });
-    expect(path).toContain('jottapp');
-    expect(path).toContain('jottapp.db');
+    expect(dir).toContain('jottapp');
   });
 
   test('win32: falls back to home AppData/Roaming', () => {
-    const path = defaultDbPath({ platform: 'win32', home: 'C:\\Users\\u', env: {} });
-    expect(path).toContain('AppData');
-    expect(path).toContain('jottapp.db');
+    const dir = defaultDataDir({ platform: 'win32', home: 'C:\\Users\\u', env: {} });
+    expect(dir).toContain('AppData');
+    expect(dir).toContain('jottapp');
   });
 });

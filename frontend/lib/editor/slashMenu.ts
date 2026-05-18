@@ -79,18 +79,12 @@ function renderMenu(
 }
 
 function positionMenu(view: EditorView, menu: HTMLElement, pos: number): void {
+  // Anchor to viewport coords + portal into <body> so the menu escapes any
+  // ancestor `overflow: hidden` (composer/editor wrappers).
   const coords = view.coordsAtPos(pos);
-  const wrap = view.dom.parentElement;
-  if (!wrap) {
-    menu.style.position = 'fixed';
-    menu.style.top = `${coords.bottom + 4}px`;
-    menu.style.left = `${coords.left}px`;
-    return;
-  }
-  const rect = wrap.getBoundingClientRect();
-  menu.style.position = 'absolute';
-  menu.style.top = `${coords.bottom - rect.top + 4}px`;
-  menu.style.left = `${coords.left - rect.left}px`;
+  menu.style.position = 'fixed';
+  menu.style.top = `${coords.bottom + 4}px`;
+  menu.style.left = `${coords.left}px`;
 }
 
 export interface SlashMenuOptions {
@@ -138,12 +132,7 @@ export const SlashMenu = Extension.create<SlashMenuOptions>({
       currentRange = { from: st.from, to: st.to };
       if (menu) menu.remove();
       menu = renderMenu(visibleCommands, pick, selected);
-      const host = view.dom.parentElement;
-      if (!host) return;
-      if (getComputedStyle(host).position === 'static') {
-        host.style.position = 'relative';
-      }
-      host.appendChild(menu);
+      document.body.appendChild(menu);
       positionMenu(view, menu, st.from);
     };
 

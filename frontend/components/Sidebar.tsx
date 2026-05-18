@@ -54,7 +54,7 @@ export function Sidebar({
 }
 
 function DeletedRow({ active, onToggle }: { active: boolean; onToggle: () => void }) {
-  const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
+  const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left hover:cursor-pointer ${
     active ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
   }`;
   return (
@@ -98,7 +98,7 @@ function PeopleList({
     <ul className="space-y-2.5">
       {people.map((p) => {
         const active = p.id === activeId;
-        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
+        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left hover:cursor-pointer ${
           active
             ? 'bg-slate-100 dark:bg-slate-800'
             : onSelect
@@ -147,7 +147,7 @@ function TopicList({
     <ul className="space-y-1.5">
       {topics.map((t) => {
         const active = t.id === activeId;
-        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left ${
+        const className = `-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded px-2 py-1 text-left hover:cursor-pointer ${
           active
             ? 'bg-slate-100 dark:bg-slate-800'
             : onSelect

@@ -3,6 +3,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'r
 import { Link, useLocation } from 'wouter';
 import { DriverIcon } from '../components/DriverIcon';
 import { useToast } from '../components/Toast';
+import { applyTheme, useApplyTheme } from '../lib/useTheme';
 import { trpc } from '../trpc';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ProfileTheme; label: string; hint: string }> = [
@@ -60,6 +61,16 @@ export function Settings() {
       setBackupDirValue(settings.data['backup.dir']);
     }
   }, [settings.data]);
+
+  // Live theme preview. On unmount, revert to the saved profile theme if the
+  // user navigated away without saving (read via ref so a mid-session profile
+  // refresh doesn't fire the revert with stale data).
+  useApplyTheme(theme);
+  const savedThemeRef = useRef<ProfileTheme | undefined>(profile.data?.theme);
+  savedThemeRef.current = profile.data?.theme;
+  useEffect(() => {
+    return () => applyTheme(savedThemeRef.current);
+  }, []);
 
   const isLoading =
     profile.isLoading || settings.isLoading || system.isLoading || aiStatus.isLoading;
@@ -138,10 +149,10 @@ export function Settings() {
     }
   }
 
-  async function copyDbPath() {
+  async function copyDataDir() {
     if (!system.data) return;
     try {
-      await navigator.clipboard.writeText(system.data.dbPath);
+      await navigator.clipboard.writeText(system.data.dataDir);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -213,7 +224,7 @@ export function Settings() {
             <Field
               id="aiDriver"
               label="Driver"
-              hint="Which AI backend to use. Only Claude for now."
+              hint="Pick an AI backend. Leave as “— None —” to disable AI features."
             >
               <select
                 id="aiDriver"
@@ -221,6 +232,7 @@ export function Settings() {
                 onChange={(e) => setAiDriver(e.target.value)}
                 className={inputClasses}
               >
+                <option value="">— None —</option>
                 {DRIVER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
@@ -231,35 +243,39 @@ export function Settings() {
 
             <AiStatusBanner status={aiStatus.data} driver={aiStatus.data?.driver} />
 
-            <Field
-              id="claudeConfigDir"
-              label="Claude config dir"
-              hint="Directory holding Claude Code's session/credentials. Defaults to ~/.claude."
-            >
-              <input
-                id="claudeConfigDir"
-                type="text"
-                value={claudeConfigDir}
-                onChange={(e) => setClaudeConfigDir(e.target.value)}
-                placeholder="~/.claude"
-                className={`${inputClasses} font-mono text-sm`}
-              />
-            </Field>
+            {aiDriver === 'claude' && (
+              <>
+                <Field
+                  id="claudeConfigDir"
+                  label="Claude config dir"
+                  hint="Directory holding Claude Code's session/credentials. Defaults to ~/.claude."
+                >
+                  <input
+                    id="claudeConfigDir"
+                    type="text"
+                    value={claudeConfigDir}
+                    onChange={(e) => setClaudeConfigDir(e.target.value)}
+                    placeholder="~/.claude"
+                    className={`${inputClasses} font-mono text-sm`}
+                  />
+                </Field>
 
-            <Field
-              id="claudeModel"
-              label="Claude model"
-              hint="Passed to claude --model. e.g. sonnet, opus, haiku."
-            >
-              <input
-                id="claudeModel"
-                type="text"
-                value={claudeModel}
-                onChange={(e) => setClaudeModel(e.target.value)}
-                placeholder="sonnet"
-                className={`${inputClasses} font-mono text-sm`}
-              />
-            </Field>
+                <Field
+                  id="claudeModel"
+                  label="Claude model"
+                  hint="Passed to claude --model. e.g. sonnet, opus, haiku."
+                >
+                  <input
+                    id="claudeModel"
+                    type="text"
+                    value={claudeModel}
+                    onChange={(e) => setClaudeModel(e.target.value)}
+                    placeholder="sonnet"
+                    className={`${inputClasses} font-mono text-sm`}
+                  />
+                </Field>
+              </>
+            )}
           </Section>
 
           <Section title="Data" subtitle="Export, import, and snapshot your journal.">
@@ -362,60 +378,66 @@ export function Settings() {
 
           <Section title="System" subtitle="Where the journal lives on disk.">
             <Field
-              id="dbPath"
-              label="Database path"
-              hint="Set at startup. Use --db or JOTTAPP_DB to change."
+              id="dataDir"
+              label="Data directory"
+              hint={
+                system.data?.bundled
+                  ? undefined
+                  : 'Set at startup. Use --data-dir or JOTT_DATA_DIR to change.'
+              }
             >
               <div className="flex items-center gap-2">
                 <input
-                  id="dbPath"
+                  id="dataDir"
                   type="text"
                   readOnly
-                  value={system.data?.dbPath ?? ''}
+                  value={system.data?.dataDir ?? ''}
                   className={`${inputClasses} font-mono text-sm text-gray-600 dark:text-gray-400`}
                 />
                 <button
                   type="button"
-                  onClick={copyDbPath}
+                  onClick={copyDataDir}
                   className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-            </Field>
-
-            <Field
-              id="attachmentsDir"
-              label="Attachments directory"
-              hint="Sibling of the database file. Image bytes live here, one file per attachment."
-            >
-              <input
-                id="attachmentsDir"
-                type="text"
-                readOnly
-                value={system.data?.attachmentsDir ?? ''}
-                className={`${inputClasses} font-mono text-sm text-gray-600 dark:text-gray-400`}
-              />
+              <ul className="mt-2 list-disc pl-5 text-xs text-gray-500 dark:text-gray-500">
+                <li>
+                  <code className="font-mono">jottapp.db</code> — SQLite database
+                </li>
+                <li>
+                  <code className="font-mono">attachments/</code> — image attachments, one file each
+                </li>
+              </ul>
             </Field>
 
             <p className="text-xs text-gray-500 dark:text-gray-500">jott v{system.data?.version}</p>
           </Section>
 
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-6 dark:border-gray-800">
-            <button
-              type="button"
-              onClick={() => setLocation('/timeline')}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-800">
+            <Link
+              href="/settings/debug"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || isSaving}
-              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
-            >
-              {isSaving ? 'Saving…' : 'Save changes'}
-            </button>
+              Debug
+            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setLocation('/timeline')}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!name.trim() || isSaving}
+                className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
+              >
+                {isSaving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
           </div>
         </form>
       )}

@@ -38,7 +38,7 @@ export function FilterBar({
           <button
             type="button"
             onClick={() => onChange({ ...filters, tagId: undefined })}
-            className="ml-0.5 text-current opacity-70 hover:opacity-100"
+            className="ml-0.5 text-current opacity-70 hover:cursor-pointer hover:opacity-100"
             aria-label={`Clear ${activeTag.name} filter`}
           >
             ×
