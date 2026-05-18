@@ -13,16 +13,16 @@
     <script>
       // Apply theme before first paint to avoid a light/dark flash. Keep in sync
       // with applyTheme() in frontend/lib/useTheme.ts — same key, same logic.
-      (function () {
+      (() => {
         try {
-          var pref = localStorage.getItem('jott:theme') || 'system';
-          var dark =
+          const pref = localStorage.getItem('jott:theme') || 'system';
+          const dark =
             pref === 'dark' ||
             (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          var root = document.documentElement;
+          const root = document.documentElement;
           if (dark) root.classList.add('dark');
           root.dataset.theme = dark ? 'dark' : 'light';
-        } catch (e) {}
+        } catch {}
       })();
     </script>
   </head>
