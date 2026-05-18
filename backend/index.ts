@@ -104,9 +104,9 @@ function main(): void {
 }
 
 function readAiDriver(raw: Database): string {
-  const row = raw.query("SELECT value FROM settings WHERE key = 'ai.driver'").get() as
-    | { value: string }
-    | null;
+  const row = raw.query("SELECT value FROM settings WHERE key = 'ai.driver'").get() as {
+    value: string;
+  } | null;
   return row?.value ?? '';
 }
 

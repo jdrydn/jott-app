@@ -1,5 +1,5 @@
-import { parseArgs } from 'node:util';
 import { join } from 'node:path';
+import { parseArgs } from 'node:util';
 import { VERSION } from '@shared/version';
 import { defaultDataDir } from './paths';
 

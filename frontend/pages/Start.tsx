@@ -103,7 +103,9 @@ export function Start() {
                       onChange={() => setTheme(opt.value)}
                       className="sr-only"
                     />
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{opt.label}</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {opt.label}
+                    </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">{opt.hint}</span>
                   </label>
                 );

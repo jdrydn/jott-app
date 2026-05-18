@@ -79,9 +79,7 @@ function Section({
     <section className="space-y-3">
       <header>
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        {subtitle ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
-        ) : null}
+        {subtitle ? <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p> : null}
       </header>
       {children}
     </section>
