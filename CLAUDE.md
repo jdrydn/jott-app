@@ -105,13 +105,16 @@ scripts/        Bun TS automation
 
 ## Key Decisions
 
-ADRs are not kept as standalone files — the long-form rationale lives in `PLAN.md`. Most load-bearing decisions:
+The full ADR log lives in [`docs/ADRs.md`](./docs/ADRs.md) — read that file for context/decision/consequences on each entry. Long-form milestone narrative stays in `PLAN.md`. Highlights of the load-bearing ones:
 
-- **Single binary via `bun build --compile`** with the UI embedded as `with { type: 'file' }` imports — see `scripts/build.ts` + `backend/staticAssets.generated.ts` (PLAN.md §3 "Binary: `jottapp`").
-- **Single-process dev via `@hono/vite-dev-server`** with the Bun adapter, requires `bun --bun vite` so Vite's SSR loader resolves `bun:` scheme imports (PLAN.md §3 "Local web server"). `backend/dev-vite.ts` is the dev-only entry that exports the Hono app.
-- **Tauri 2 sidecar pattern** rather than `tauri build`-as-frontend or rewriting the backend in Rust. The Rust shell parses a `JOTTAPP_READY <url>` sentinel from the backend's stdout to decouple itself from backend internals (PLAN.md M9).
-- **tRPC over fetch adapter** instead of a hand-rolled REST surface — gives end-to-end types between server routers and React Query hooks (PLAN.md §10).
-- **AGPLv3** licence — copyleft, not MIT.
+- **ADR-002 — Single binary via `bun build --compile`** with the UI embedded as `with { type: 'file' }` imports; see `scripts/build.ts` + `backend/staticAssets.generated.ts`.
+- **ADR-010 — Single-process dev via `@hono/vite-dev-server`** with the Bun adapter; requires `bun --bun vite` so the SSR loader resolves `bun:` imports. Dev entry is `backend/dev-vite.ts`.
+- **ADR-011 — Tauri 2 sidecar pattern** for the macOS `.app` (don't rewrite the backend in Rust, don't use Electron).
+- **ADR-012 — `JOTTAPP_READY <url>` stdout sentinel** as the Rust ↔ Bun handshake — the contract; don't change its shape.
+- **ADR-003 — tRPC over fetch adapter**, not hand-rolled REST.
+- **ADR-013 / ADR-014 — `127.0.0.1` bind + no auth + port lock** as single-instance guard. No daemon mode.
+- **ADR-015 — AGPLv3**.
+- **ADR-016 — macOS releases are `.app.zip`** (via `ditto`), not `.dmg`.
 
 ## Gotchas
 

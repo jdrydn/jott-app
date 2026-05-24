@@ -57,3 +57,4 @@ Both are plain files - copy the data directory to back up jott, restore it to mi
 
 - Questions? Please [open an issue](https://github.com/jdrydn/jott-app/issues).
 - PRs welcome - see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for tooling requirements, the local dev loop, lint/test commands, and the PR / release workflow.
+- Curious about _why_ jott is built this way? See [`docs/ADRs.md`](./docs/ADRs.md) for the running log of architectural decisions.
