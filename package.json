@@ -27,7 +27,8 @@
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "tauri:build": "bun tauri build",
-    "tauri:dev": "bun tauri dev"
+    "tauri:dev": "bun tauri dev",
+    "tauri:deploy": "rm -rf ~/Applications/jott.app && cp -r tauri/target/release/bundle/macos/jott.app ~/Applications/jott.app"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.10",
