@@ -17,7 +17,13 @@ export type PMTagNode = {
   marks?: PMMark[];
 };
 
-export type PMInlineNode = PMTextNode | PMHardBreak | PMTagNode;
+export type PMEmojiNode = {
+  type: 'emoji';
+  attrs: { name: string };
+  marks?: PMMark[];
+};
+
+export type PMInlineNode = PMTextNode | PMHardBreak | PMTagNode | PMEmojiNode;
 
 export type PMBlockNode = {
   type: string;
