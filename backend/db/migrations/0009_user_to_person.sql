@@ -1,10 +1,8 @@
 -- Rename the tag type 'user' → 'person'. The original CREATE TABLE in 0002
 -- pins the allowed values via a CHECK constraint, so we recreate the table
 -- under the new constraint, carrying data over with the value swapped.
--- entry_tags references tags(id), so we disable FK enforcement for the swap
--- and then re-enable it — the rowids/ids are preserved across the rename.
-
-PRAGMA foreign_keys = OFF;
+-- The migrate runner disables foreign_keys around the batch so the DROP
+-- below doesn't cascade into entry_tags.
 
 CREATE TABLE tags_new (
   id TEXT PRIMARY KEY NOT NULL,
@@ -26,5 +24,3 @@ DROP TABLE tags;
 ALTER TABLE tags_new RENAME TO tags;
 
 CREATE UNIQUE INDEX tags_type_name_idx ON tags (type, name);
-
-PRAGMA foreign_keys = ON;
