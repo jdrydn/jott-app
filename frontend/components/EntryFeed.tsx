@@ -218,8 +218,12 @@ function EntryRow({
           <MarkdownView body={entry.body} links={entry.tags} onTagClick={onSetTagFilter} />
         )}
       </div>
-      <div className="flex w-16 shrink-0 items-start justify-end gap-1 self-start opacity-0 transition-opacity group-hover:opacity-100">
-        {editing ? null : trash ? (
+      <div
+        className={`flex w-16 shrink-0 items-start justify-end gap-1 self-start transition-opacity ${
+          editing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        {trash ? (
           <RowAction
             onClick={() => restore.mutate({ id: entry.id })}
             title="Restore entry"
@@ -227,6 +231,22 @@ function EntryRow({
           >
             <RestoreIcon />
           </RowAction>
+        ) : editing ? (
+          <>
+            <RowAction
+              onClick={() => setEditing(false)}
+              title="Save & exit (changes save automatically)"
+            >
+              <CheckIcon />
+            </RowAction>
+            <RowAction
+              onClick={() => del.mutate({ id: entry.id })}
+              title="Delete entry"
+              disabled={del.isPending}
+            >
+              <TrashIcon />
+            </RowAction>
+          </>
         ) : (
           <>
             <RowAction onClick={() => setEditing(true)} title="Edit entry">
@@ -262,7 +282,7 @@ function RowAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded p-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      className="rounded p-1 text-xs cursor-pointer text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       title={title}
       aria-label={title}
     >
@@ -376,6 +396,24 @@ function TrashIcon() {
       <path
         fillRule="evenodd"
         d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
         clipRule="evenodd"
       />
     </svg>

@@ -60,8 +60,7 @@ jottapp --help
 - **No auth** — pure trust-the-loopback. Personal-use single-device app.
 - Fixed default port `4853`. If taken, **fail to start** with a clear message ("port 4853 in use — is `jottapp` already running?"). No fallback.
 - **In production:** Hono serves the pre-built React app as static assets, embedded into the compiled binary via `bun build --compile`.
-- **In development:** two processes — Vite serves the frontend on `127.0.0.1:4853` (user-facing URL, matches prod), Hono runs on `127.0.0.1:4854`, Vite proxies `/api/*` to Hono. Single user-facing URL, HMR works, origins effectively share via the proxy. Orchestrated by `scripts/dev.ts` (one `bun run dev` command).
-  - Why not Hono-mounts-Vite via middleware? Vite's dev-server SSR loader runs the Hono entry through Node's ESM loader, which can't resolve `bun:` scheme imports (`bun:sqlite`). The inverse direction (`@hono/vite-dev-server`) has the same problem.
+- **In development:** single process — `bun --bun vite` serves the frontend on `127.0.0.1:4853` (user-facing URL, matches prod) and runs the Hono app in-process via `@hono/vite-dev-server` (Bun adapter). Vite handles `/`, static assets, and HMR; the Hono dev-server handles `/api/*` and `/healthz`. Running Vite under `bun --bun` makes the SSR loader use Bun's runtime, so `bun:sqlite` resolves in the dev entry (`backend/devEntry.ts`).
 - Lifecycle: foreground process. `Ctrl+C` to stop. No daemon mode.
 - Single-instance is implicitly handled by the port lock — a second `jottapp` will fail to bind.
 
@@ -238,9 +237,9 @@ Gated — each leaves a working, runnable binary.
 ### M0 — Hello server (weekend prototype) — ✓ shipped 2026-05-13
 - Bun project scaffold, TS strict
 - Drizzle + `bun:sqlite` wired up, first migration (`entries` table)
-- Hono on `127.0.0.1:4853`, fails if port taken (`:4854` in dev to leave `:4853` for Vite)
+- Hono on `127.0.0.1:4853`, fails if port taken
 - tRPC mounted at `/api/trpc` with `entries.list` + `entries.create` procedures
-- Dev: Vite on `:4853` + Hono on `:4854` via `scripts/dev.ts`; Vite proxies `/api/*` to Hono
+- Dev: `bun --bun vite` on `:4853` runs Hono in-process via `@hono/vite-dev-server` (Bun adapter)
 - Minimal React 19 + Tailwind v4 app: list of entries + plain `<textarea>` to add, talking to tRPC via `@trpc/react-query`
 - `jottapp` boots server + auto-opens browser
 - `bun build --compile` produces a single binary with UI assets embedded

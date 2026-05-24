@@ -1,4 +1,5 @@
 import { formatTagRef } from '@shared/tags';
+import { emojis, shortcodeToEmoji } from '@tiptap/extension-emoji';
 import type { PMBlockNode, PMDoc, PMInlineNode, PMMark, PMNode } from './types';
 
 export function docToMarkdown(doc: PMDoc): string {
@@ -84,6 +85,13 @@ function inlineToMarkdown(nodes: PMInlineNode[]): string {
     }
     if (n.type === 'tag') {
       out += formatTagRef(n.attrs.id);
+      continue;
+    }
+    if (n.type === 'emoji') {
+      // Inline the unicode glyph so the markdown is human-readable and
+      // round-trips as plain text on reload — keeps toProseMirror agnostic.
+      const item = shortcodeToEmoji(n.attrs.name, emojis);
+      out += item?.emoji ?? `:${n.attrs.name}:`;
       continue;
     }
     if (n.type !== 'text') continue;

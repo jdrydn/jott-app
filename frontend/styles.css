@@ -125,6 +125,18 @@ html.dark .jott-titlebar {
   color: #e5e7eb;
 }
 
+/* Match MarkdownView's link styling so autolinked URLs are visible in the
+   composer (Tiptap's Link extension renders bare <a> tags with no defaults). */
+.jott-editor a {
+  color: #2563eb; /* blue-600 */
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dark .jott-editor a {
+  color: #60a5fa; /* blue-400 */
+}
+
 .jott-editor pre code {
   background: transparent;
   padding: 0;
@@ -443,4 +455,108 @@ html.dark .jott-titlebar {
 .jott-tag-node {
   display: inline-block;
   vertical-align: baseline;
+}
+
+/* Emoji suggestion popup — mirrors .jott-tag-menu but with a tighter min-width
+   and a glyph slot instead of a colored sigil. */
+.jott-emoji-menu {
+  z-index: 50;
+  min-width: 14rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  padding: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.jott-emoji-menu__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.25rem 0.5rem 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.jott-emoji-menu__title {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: #475569;
+}
+
+.jott-emoji-menu__hint {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.jott-emoji-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #0f172a;
+  text-align: left;
+  border: none;
+  margin-top: 0.15rem;
+}
+
+.jott-emoji-menu__item:hover,
+.jott-emoji-menu__item.is-selected {
+  background-color: #ecfdf5;
+}
+
+.jott-emoji-menu__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  flex: none;
+  font-size: 1.1rem;
+}
+
+.jott-emoji-menu__label {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.jott-emoji-menu__empty {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.dark .jott-emoji-menu {
+  background-color: #111827;
+  border-color: #374151;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.dark .jott-emoji-menu__header {
+  border-bottom-color: #1f2937;
+}
+
+.dark .jott-emoji-menu__title {
+  color: #cbd5e1;
+}
+
+.dark .jott-emoji-menu__hint,
+.dark .jott-emoji-menu__label {
+  color: #94a3b8;
+}
+
+.dark .jott-emoji-menu__item {
+  color: #f1f5f9;
+}
+
+.dark .jott-emoji-menu__item:hover,
+.dark .jott-emoji-menu__item.is-selected {
+  background-color: #064e3b;
 }

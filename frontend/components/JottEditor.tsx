@@ -1,6 +1,7 @@
 import type { TagWithStats } from '@backend/trpc/routers/tags';
 import type { TagType } from '@shared/tags';
 import type { Editor } from '@tiptap/core';
+import { Emoji, gitHubEmojis } from '@tiptap/extension-emoji';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskItem from '@tiptap/extension-task-item';
@@ -8,6 +9,7 @@ import TaskList from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { emojiItems, emojiRender } from '../lib/editor/emojiSuggestion';
 import { uploadImage } from '../lib/editor/imageUpload';
 import { ImageUploadNode } from '../lib/editor/imageUploadNode';
 import { SlashMenu } from '../lib/editor/slashMenu';
@@ -204,6 +206,11 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
         TaskItem.configure({ nested: false }),
         Image.configure({ inline: false, allowBase64: false }),
         ImageUploadNode,
+        Emoji.configure({
+          emojis: gitHubEmojis,
+          forceFallbackImages: false,
+          suggestion: { items: emojiItems, render: emojiRender },
+        }),
         Placeholder.configure({ placeholder }),
         TagNode.configure({ resolveTag }),
         TagAutocomplete.configure({ suggest, createTag }),
