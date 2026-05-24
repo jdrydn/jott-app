@@ -19,7 +19,7 @@ export function Sidebar({
 
   const people = all
     .filter(
-      (t): t is TagWithStats & { lastSeen: number } => t.type === 'user' && t.lastSeen != null,
+      (t): t is TagWithStats & { lastSeen: number } => t.type === 'person' && t.lastSeen != null,
     )
     .sort((a, b) => b.lastSeen - a.lastSeen)
     .slice(0, 8);

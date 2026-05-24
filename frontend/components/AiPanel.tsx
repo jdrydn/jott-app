@@ -236,10 +236,10 @@ export function AiPanel({
 }
 
 export function askPlaceholder(
-  activeTag: { type: 'topic' | 'user'; name: string } | undefined,
+  activeTag: { type: 'topic' | 'person'; name: string } | undefined,
 ): string {
   if (!activeTag) return 'What was my last week like';
-  if (activeTag.type === 'user') return `When did I speak to @${activeTag.name}`;
+  if (activeTag.type === 'person') return `When did I speak to @${activeTag.name}`;
   return `When did I last speak about #${activeTag.name}`;
 }
 

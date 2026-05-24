@@ -49,9 +49,9 @@ describe('tags.list', () => {
 
     const list = await s.caller.tags.list();
     const byKey = new Map(list.map((t) => [`${t.type}:${t.name}`, t]));
-    expect(byKey.get('user:priya')?.count).toBe(2);
+    expect(byKey.get('person:priya')?.count).toBe(2);
     expect(byKey.get('topic:q3-plan')?.count).toBe(1);
-    const priya = byKey.get('user:priya');
+    const priya = byKey.get('person:priya');
     expect(priya?.lastSeen).toBeGreaterThan(byKey.get('topic:q3-plan')?.lastSeen ?? 0);
   });
 
@@ -139,7 +139,7 @@ describe('tags.rename', () => {
     await expect(s.caller.tags.rename({ id: 'nope', name: 'x' })).rejects.toThrow();
   });
 
-  test('does not collide across types (topic vs user)', async () => {
+  test('does not collide across types (topic vs person)', async () => {
     await s.caller.entries.create({ body: '#work and @work' });
     const list = await s.caller.tags.list();
     const topic = list.find((t) => t.type === 'topic' && t.name === 'work');

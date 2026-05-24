@@ -1,4 +1,4 @@
-export type TagType = 'topic' | 'user';
+export type TagType = 'topic' | 'person';
 
 // Bare-token regex: matches literal `#word` / `@word` the user typed.
 // Used by the editor to detect autocomplete triggers and by the reconciler
@@ -28,7 +28,7 @@ export function extractBareTags(body: string): BareTag[] {
     const sigil = m[1];
     const word = m[2];
     if (!sigil || !word) continue;
-    const type: TagType = sigil === '#' ? 'topic' : 'user';
+    const type: TagType = sigil === '#' ? 'topic' : 'person';
     const name = word.toLowerCase();
     const key = `${type}:${name}`;
     if (!seen.has(key)) {

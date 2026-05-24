@@ -128,8 +128,44 @@ describe('migrate', () => {
     ).toThrow();
     db.exec(
       `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
-       VALUES ('t3', 'user', 'work', 'WO', '#000', 3, 3)`,
+       VALUES ('t3', 'person', 'work', 'WO', '#000', 3, 3)`,
     );
+  });
+
+  test('table-recreate migration preserves FK-referencing rows when foreign_keys is on at boot', () => {
+    // Regression: an earlier version of the user→person migration left FKs on,
+    // so DROP TABLE tags cascaded into entry_tags and wiped every link.
+    // The migrate runner now disables FKs around the whole batch.
+    const db = new Database(':memory:');
+    db.exec('PRAGMA foreign_keys = ON');
+
+    // Apply migrations 1..7 only — we want to seed in the pre-rename world.
+    for (let i = 0; i < 7; i++) {
+      const sql = migrations[i] as string;
+      db.transaction(() => {
+        db.exec(sql);
+        db.exec(`PRAGMA user_version = ${i + 1}`);
+      })();
+    }
+
+    db.exec(
+      `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
+       VALUES ('t1', 'user', 'priya', 'PR', '#000', 1, 1)`,
+    );
+    db.exec(
+      `INSERT INTO entries (id, created_at, updated_at, body, body_rendered)
+       VALUES ('e1', 1, 1, 'hi {{ tag id=t1 }}', 'hi @priya')`,
+    );
+    db.exec(`INSERT INTO entry_tags (entry_id, tag_id, created_at) VALUES ('e1', 't1', 1)`);
+
+    migrate(db);
+
+    const tag = db.query("SELECT type FROM tags WHERE id = 't1'").get() as { type: string };
+    expect(tag.type).toBe('person');
+    const link = db
+      .query("SELECT entry_id, tag_id FROM entry_tags WHERE entry_id = 'e1' AND tag_id = 't1'")
+      .get();
+    expect(link).toEqual({ entry_id: 'e1', tag_id: 't1' });
   });
 
   test('entry_tags cascades on entry delete and on tag delete', () => {
