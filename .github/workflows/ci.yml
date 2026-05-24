@@ -71,7 +71,7 @@ jobs:
           - platform: macos-arm64
             runs-on: macos-14
           - platform: linux-x64
-            runs-on: ubuntu-22.04
+            runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -87,10 +87,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
+            libwebkit2gtk-4.1-0 \
+            libjavascriptcoregtk-4.1-dev \
+            libjavascriptcoregtk-4.1-0 \
+            gir1.2-webkit2-4.1 \
+            gir1.2-javascriptcoregtk-4.1 \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev \
-            libfuse2 \
+            libfuse2t64 \
             patchelf
       - run: bun install --frozen-lockfile
       - name: Build Tauri app
