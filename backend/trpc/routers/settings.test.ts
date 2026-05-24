@@ -97,7 +97,7 @@ describe('settings.set', () => {
 
   test('rejects oversized value', async () => {
     await expect(
-      s.caller.settings.set({ key: 'ai.claude.model', value: 'x'.repeat(1025) }),
+      s.caller.settings.set({ key: 'ai.claude.model', value: 'x'.repeat(1_000_001) }),
     ).rejects.toThrow();
   });
 });
@@ -110,6 +110,7 @@ describe('SETTING_DEFAULTS', () => {
       'ai.driver',
       'backup.dir',
       'backup.onQuit',
+      'composer.draft',
     ]);
   });
 

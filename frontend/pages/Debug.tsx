@@ -1,3 +1,4 @@
+import { renderBody, type TagType } from '@shared/tags';
 import { Link } from 'wouter';
 import { trpc } from '../trpc';
 
@@ -7,18 +8,27 @@ const SETTING_LABELS: Record<string, string> = {
   'ai.claude.model': 'AI · Claude · Model',
   'backup.onQuit': 'Backup · On quit',
   'backup.dir': 'Backup · Directory',
+  'composer.draft': 'Composer Draft',
 };
 
 const SYSTEM_LABELS: Record<string, string> = {
   version: 'Version',
   dataDir: 'Data directory',
   bundled: 'Bundled',
+  tagCount: 'Tags',
+  entryCount: 'Entries',
+  deletedEntryCount: 'Deleted entries',
 };
 
 export function Debug() {
   const settings = trpc.settings.getAll.useQuery();
   const system = trpc.system.info.useQuery();
-  const isLoading = settings.isLoading || system.isLoading;
+  const tags = trpc.tags.list.useQuery();
+  const isLoading = settings.isLoading || system.isLoading || tags.isLoading;
+
+  const tagMap = new Map<string, { type: TagType; name: string }>(
+    (tags.data ?? []).map((t) => [t.id, { type: t.type as TagType, name: t.name }]),
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-6 py-10">
@@ -46,7 +56,7 @@ export function Debug() {
               rows={Object.entries(settings.data ?? {}).map(([key, value]) => ({
                 key,
                 label: SETTING_LABELS[key] ?? key,
-                value: String(value),
+                value: key === 'composer.draft' ? renderBody(String(value), tagMap) : String(value),
               }))}
             />
           </Section>

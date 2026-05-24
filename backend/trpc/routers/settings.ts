@@ -12,6 +12,7 @@ export const SETTING_DEFAULTS = {
   'ai.claude.model': 'sonnet',
   'backup.onQuit': 'false',
   'backup.dir': '',
+  'composer.draft': '',
 } satisfies Record<string, string>;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
@@ -21,9 +22,11 @@ const SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as [SettingKey, ...SettingKey
 
 const settingKey = z.enum(SETTING_KEYS);
 
+// Config keys are short (~1 KB). composer.draft holds in-progress note markdown
+// — bump the ceiling so longer drafts round-trip without rejection.
 const setInput = z.object({
   key: settingKey,
-  value: z.string().trim().max(1024),
+  value: z.string().trim().max(1_000_000),
 });
 
 export const settingsRouter = router({
