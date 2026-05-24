@@ -59,3 +59,41 @@ jobs:
           path: jottapp-${{ matrix.target }}*
           if-no-files-found: error
           retention-days: 14
+
+  tauri:
+    name: Tauri build (${{ matrix.platform }})
+    needs: ci
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            runs-on: macos-14
+          - platform: linux-x64
+            runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri -> target
+      - name: Install Linux Tauri deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf
+      - run: bun install --frozen-lockfile
+      - name: Build Tauri app
+        # Narrow to deb on Linux — AppImage's linuxdeploy step is too flaky on
+        # GitHub-hosted runners (see PLAN.md M10). macOS keeps the default
+        # bundle set since `bun tauri build` defaults to `app` + `dmg` there.
+        run: bun tauri build --ci ${{ runner.os == 'Linux' && '--bundles deb' || '' }}
