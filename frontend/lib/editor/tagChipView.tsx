@@ -23,7 +23,7 @@ export function TagChipView({ node, extension }: ReactNodeViewProps) {
         className="jott-tag-node jott-tag-node--broken"
         data-jott-tag-id={id}
       >
-        <span title="Tag not found" className="text-gray-400 italic dark:text-gray-500">
+        <span title="Tag not found" className="text-gray-400 leading-5 italic dark:text-gray-500">
           {`{{ tag id=${id} }}`}
         </span>
       </NodeViewWrapper>
@@ -34,7 +34,7 @@ export function TagChipView({ node, extension }: ReactNodeViewProps) {
   return (
     <NodeViewWrapper as="span" className="jott-tag-node" data-jott-tag-id={id}>
       <span
-        className="rounded px-1.5 py-0.5 font-medium"
+        className="rounded px-1.5 py-0.5 leading-5 font-medium"
         style={{ backgroundColor: tint(tag.color), color: tag.color }}
         contentEditable={false}
       >
