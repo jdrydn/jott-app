@@ -99,8 +99,8 @@ describe('tags.rename', () => {
     // The canonical body is untouched (still references the tag by ULID),
     // but body_rendered reflects the new name so FTS + display update.
     const row = db.select().from(entries).where(eq(entries.id, created.id)).get();
-    expect(row?.bodyRendered).toContain('#newname');
-    expect(row?.bodyRendered).not.toContain('#oldname');
+    expect(row?.bodyRendered).toContain('#[newname]');
+    expect(row?.bodyRendered).not.toContain('#[oldname]');
   });
 
   test('rejects collision with existing same-type name', async () => {

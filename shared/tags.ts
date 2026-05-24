@@ -58,7 +58,8 @@ export function renderBody(
   return body.replace(TAG_REF_REGEX, (full, id: string) => {
     const tag = byId.get(id);
     if (!tag) return full;
-    return `${tag.type === 'topic' ? '#' : '@'}${tag.name}`;
+    // Bracket-wrap the name so multi-word tags read as a single token to humans.
+    return `${tag.type === 'topic' ? '#' : '@'}[${tag.name}]`;
   });
 }
 
