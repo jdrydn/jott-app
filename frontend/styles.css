@@ -22,6 +22,11 @@ html.dark {
   right: 0;
   height: 2.5rem;
   z-index: 100;
+  background-color: #ffffff;
+}
+
+html.dark .jott-titlebar {
+  background-color: #030712; /* gray-950 */
 }
 
 .jott-chip {

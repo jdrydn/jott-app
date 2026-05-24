@@ -14,11 +14,7 @@ export function App() {
   useApplyTheme(profile.data?.theme);
 
   return (
-    <div
-      className={`min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100 ${
-        isTauri ? 'pt-4' : ''
-      }`}
-    >
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {isTauri ? <TauriTitlebar /> : null}
       <Switch>
         <Route path="/" component={RootRedirect} />
