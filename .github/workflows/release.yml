@@ -53,6 +53,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev \
+            libfuse2 \
             patchelf
       - run: bun install --frozen-lockfile
       - run: bun tauri build --ci --bundles ${{ matrix.bundles }}
