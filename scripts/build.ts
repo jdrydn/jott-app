@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Glob } from 'bun';
@@ -88,8 +88,18 @@ async function build(): Promise<void> {
   process.stdout.write(`✓ built ${BINARY} (${sizeMb.toFixed(1)} MB)\n`);
 }
 
+async function cleanupBunBuildArtifacts(): Promise<void> {
+  // `bun build --compile` drops `.{hex}-{n}.bun-build` temp files (~63MB each)
+  // in CWD and doesn't always clean them up — sweep on every build, success or not.
+  const glob = new Glob('.*.bun-build');
+  for await (const f of glob.scan({ cwd: ROOT, onlyFiles: true, dot: true })) {
+    await rm(resolve(ROOT, f), { force: true });
+  }
+}
+
 try {
   await build();
 } finally {
   await writeFile(MANIFEST, STUB);
+  await cleanupBunBuildArtifacts();
 }

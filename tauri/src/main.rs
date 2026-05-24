@@ -43,7 +43,7 @@ fn main() {
 
             let sidecar = app
                 .shell()
-                .sidecar("hono-server")
+                .sidecar("jottapp-backend")
                 .unwrap()
                 .env("JOTT_BUNDLED", "true")
                 .env("JOTT_DATA_DIR", app_data_dir.to_string_lossy().to_string())
