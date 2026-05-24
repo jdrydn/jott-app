@@ -91,4 +91,4 @@ jott is a single-maintainer project right now — [@jdrydn](https://github.com/j
 
 - **Squash & merge** is the default. It keeps `main` linear and ensures every commit on `main` is a Conventional Commit.
 - Delete the branch after merge — the Release workflow is independent and doesn't rely on branch history.
-- Releases are cut by drafting a release in the GitHub UI and clicking _Publish_. The `Release` workflow then attaches `.app.zip` / `.AppImage` / `.deb` bundles to that release; no manual upload step.
+- Releases are cut by drafting a release in the GitHub UI and clicking _Publish_. The `Release` workflow then attaches `.app.zip` (macOS) / `.deb` (Linux) bundles to that release; no manual upload step.

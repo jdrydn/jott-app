@@ -26,7 +26,7 @@ jott is a standalone, offline-first, timestamped personal journal. The user type
 - **Typecheck:** `bun run typecheck` (`tsc --noEmit`).
 - **Build (binary):** `bun run build` → `./jottapp` (single file, ~65 MB, UI embedded via `bun build --compile`).
 - **Build (Tauri app):** `bun run tauri:build`. Sidecar is built by `bun run build:backend` → `scripts/build-sidecar.ts`, which detects host triple and writes `tauri/binaries/jottapp-backend-<CARGO_TRIPLE>`.
-- **Deploy:** publish a GitHub release in the UI; the `Release` workflow (`.github/workflows/release.yml`) fires on `release: published`, builds Tauri apps on `macos-14` (arm64 `.app.zip`), `macos-13` (x64 `.app.zip`) and `ubuntu-22.04` (`.AppImage` + `.deb`), and attaches them via `gh release upload`.
+- **Deploy:** publish a GitHub release in the UI; the `Release` workflow (`.github/workflows/release.yml`) fires on `release: published`, builds Tauri apps on `macos-14` (arm64 `.app.zip`), `macos-13` (x64 `.app.zip`) and `ubuntu-22.04` (`.deb`), and attaches them via `gh release upload`.
 
 ## Architecture
 

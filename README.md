@@ -30,7 +30,7 @@ Grab the latest build from the [releases page](https://github.com/jdrydn/jott-ap
 
 - **macOS** - download `jott-<triple>.app.zip` (use `aarch64` for Apple Silicon, `x86_64` for Intel), unzip, drag `jott.app` into `/Applications` (or `~/Applications` if you don't have local admin). Builds are currently unsigned, so the first launch needs a right-click → **Open** to bypass the Gatekeeper "_unidentified developer_" prompt.
   - macOS Gatekeeper signing will come later.
-- **Linux** - download either `jott_<version>_amd64.AppImage` (`chmod +x` and run anywhere) or `jott_<version>_amd64.deb` (`sudo dpkg -i …`).
+- **Linux** - download `jott_<version>_amd64.deb` and install with `sudo dpkg -i jott_<version>_amd64.deb` (Debian/Ubuntu derivatives).
 - **Homebrew tap** - planned, not landed yet.
 
 ## Features

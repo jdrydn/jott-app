@@ -29,12 +29,10 @@ jobs:
             bundles: app
             bundlePaths: tauri/target/release/bundle/macos/*.app.zip
           - platform: linux-x64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
-            bundles: deb,appimage
-            bundlePaths: |
-              tauri/target/release/bundle/appimage/*.AppImage
-              tauri/target/release/bundle/deb/*.deb
+            bundles: deb
+            bundlePaths: tauri/target/release/bundle/deb/*.deb
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -50,24 +48,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
-            libwebkit2gtk-4.1-0 \
-            libjavascriptcoregtk-4.1-dev \
-            libjavascriptcoregtk-4.1-0 \
-            gir1.2-webkit2-4.1 \
-            gir1.2-javascriptcoregtk-4.1 \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev \
-            libfuse2t64 \
             patchelf
       - run: bun install --frozen-lockfile
-      - name: Build Tauri bundles
-        env:
-          # linuxdeploy ships as an AppImage and needs FUSE to mount itself.
-          # GitHub runners can refuse FUSE mounts even with libfuse2 installed
-          # (sandbox/permission), so make AppImages extract instead.
-          APPIMAGE_EXTRACT_AND_RUN: 1
-        run: bun tauri build --ci --bundles ${{ matrix.bundles }}
+      - run: bun tauri build --ci --bundles ${{ matrix.bundles }}
       - name: Zip macOS .app
         if: runner.os == 'macOS'
         working-directory: tauri/target/release/bundle/macos
