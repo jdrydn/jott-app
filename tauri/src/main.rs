@@ -1,8 +1,11 @@
-use tauri::{Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use std::sync::Mutex;
+use tauri::{Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 
 const READY_PREFIX: &str = "JOTTAPP_READY ";
+
+struct SidecarChild(Mutex<Option<CommandChild>>);
 
 fn configure_window<'a, R: Runtime, M: Manager<R>>(
     builder: WebviewWindowBuilder<'a, R, M>,
@@ -25,6 +28,7 @@ fn configure_window<'a, R: Runtime, M: Manager<R>>(
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .manage(SidecarChild(Mutex::new(None)))
         .setup(|app| {
             if cfg!(debug_assertions) {
                 // dev: `bun run dev` (via beforeDevCommand) runs vite + backend.
@@ -43,13 +47,14 @@ fn main() {
 
             let sidecar = app
                 .shell()
-                .sidecar("hono-server")
+                .sidecar("jottapp-backend")
                 .unwrap()
                 .env("JOTT_BUNDLED", "true")
                 .env("JOTT_DATA_DIR", app_data_dir.to_string_lossy().to_string())
                 .env("JOTTAPP_PORT", "0");
 
-            let (mut rx, _child) = sidecar.spawn().expect("failed to spawn sidecar");
+            let (mut rx, child) = sidecar.spawn().expect("failed to spawn sidecar");
+            app.state::<SidecarChild>().0.lock().unwrap().replace(child);
 
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -87,8 +92,15 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error running app");
+        .build(tauri::generate_context!())
+        .expect("error building app")
+        .run(|app_handle, event| {
+            if let RunEvent::Exit = event {
+                if let Some(child) = app_handle.state::<SidecarChild>().0.lock().unwrap().take() {
+                    let _ = child.kill();
+                }
+            }
+        });
 }
 
 fn parse_ready_url(line: &str) -> Option<&str> {

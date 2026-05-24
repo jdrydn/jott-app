@@ -91,7 +91,7 @@ describe('extractBareTags', () => {
 });
 
 describe('renderBody', () => {
-  test('replaces markers with @name / #name from the lookup', () => {
+  test('replaces markers with @[name] / #[name] from the lookup', () => {
     const a = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
     const b = '01H4G9X8Y7Z6V5T4S3R2Q1P0NA';
     const lookup = new Map([
@@ -99,7 +99,7 @@ describe('renderBody', () => {
       [b, { type: 'topic' as const, name: 'q3-plan' }],
     ]);
     const body = `met ${formatTagRef(a)} about ${formatTagRef(b)}`;
-    expect(renderBody(body, lookup)).toBe('met @priya about #q3-plan');
+    expect(renderBody(body, lookup)).toBe('met @[priya] about #[q3-plan]');
   });
 
   test('leaves unknown ids as literal marker text', () => {

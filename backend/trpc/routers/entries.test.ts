@@ -442,7 +442,7 @@ describe('entries.list filters', () => {
 
     const hits = await s.caller.entries.list({ tagId: work.id });
     expect(hits.items).toHaveLength(1);
-    expect(hits.items[0]?.bodyRendered).toContain('#work');
+    expect(hits.items[0]?.bodyRendered).toContain('#[work]');
   });
 
   test('tagId returns empty when no entries link to the tag', async () => {

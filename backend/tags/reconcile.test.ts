@@ -47,8 +47,8 @@ describe('reconcileEntryTags', () => {
     expect(r.body).not.toContain('#q3-plan');
 
     // Rendered form resolves back to readable text for FTS.
-    expect(r.bodyRendered).toContain('@priya');
-    expect(r.bodyRendered).toContain('#q3-plan');
+    expect(r.bodyRendered).toContain('@[priya]');
+    expect(r.bodyRendered).toContain('#[q3-plan]');
 
     const links = s.db.select().from(entryTags).where(eq(entryTags.entryId, s.entryId)).all();
     expect(links).toHaveLength(2);

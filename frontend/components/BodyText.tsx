@@ -60,7 +60,7 @@ function Chip({
   const sigil = resolved.type === 'topic' ? '#' : '@';
   const label = `${sigil}${resolved.name}`;
   const interactive = onClick != null;
-  const className = `rounded px-1.5 py-0.5 font-medium ${
+  const className = `rounded px-1.5 py-0.5 font-medium leading-5 ${
     interactive ? 'cursor-pointer hover:brightness-95' : ''
   }`;
   const style = { backgroundColor: tint(resolved.color), color: resolved.color };

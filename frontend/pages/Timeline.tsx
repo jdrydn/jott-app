@@ -53,7 +53,7 @@ export function Timeline() {
         profileName={profile.data?.name ?? null}
       />
       {noProfile ? <NoProfileBanner /> : null}
-      <div className="flex gap-12 border-t border-gray-200 py-8 dark:border-gray-800">
+      <div className="flex gap-12 py-8">
         <main className="min-w-0 flex-1">
           {trash || isSearching ? null : <Composer ref={composerRef} />}
           {trash ? <TrashBanner /> : null}

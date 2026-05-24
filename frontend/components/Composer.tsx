@@ -13,10 +13,16 @@ export type ComposerHandle = {
   focus: () => void;
 };
 
+const DRAFT_KEY = 'composer.draft';
+
 export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
   const [focused, setFocused] = useState(false);
   const editorRef = useRef<JottEditorHandle>(null);
   const utils = trpc.useUtils();
+
+  const settingsQuery = trpc.settings.getAll.useQuery();
+  const tagsQuery = trpc.tags.list.useQuery();
+  const setSetting = trpc.settings.set.useMutation();
 
   const create = trpc.entries.create.useMutation({
     onSuccess: () => {
@@ -39,9 +45,31 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
     editorRef.current?.clear();
   }, []);
 
+  const handleAutoSave = useCallback(
+    (md: string) => {
+      setSetting.mutate({ key: DRAFT_KEY, value: md });
+    },
+    [setSetting],
+  );
+
+  const handleChange = useCallback(
+    (md: string) => {
+      if (md.length === 0) setSetting.mutate({ key: DRAFT_KEY, value: '' });
+    },
+    [setSetting],
+  );
+
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus(),
   }));
+
+  // Wait for the draft AND the tags list before mounting the editor.
+  // JottEditor reads initialBody once on mount, so a late draft is ignored;
+  // the tags list must be ready so tag-marker chips resolve on first render
+  // (ReactNodeViewRenderer doesn't re-render on the editor's tags-refresh
+  // meta transaction).
+  if (settingsQuery.isLoading || tagsQuery.isLoading) return null;
+  const initialDraft = settingsQuery.data?.[DRAFT_KEY] ?? '';
 
   function onFormKey(e: KeyboardEvent<HTMLFormElement>) {
     if (e.key === 'Escape') {
@@ -64,7 +92,15 @@ export const Composer = forwardRef<ComposerHandle>(function Composer(_, ref) {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <JottEditor ref={editorRef} autoFocus="end" onSubmit={submit} onCancel={cancel} />
+      <JottEditor
+        ref={editorRef}
+        autoFocus="end"
+        initialBody={initialDraft}
+        onSubmit={submit}
+        onCancel={cancel}
+        onAutoSave={handleAutoSave}
+        onChange={handleChange}
+      />
       <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/60 px-3 py-2 text-xs dark:border-gray-800 dark:bg-gray-950/40">
         <div className="flex items-center gap-1.5">
           <HintChip sigil="@" label="mention" mono />

@@ -58,7 +58,7 @@ export const JottEditor = forwardRef<JottEditorHandle, JottEditorProps>(function
     initialBody = '',
     placeholder = DEFAULT_PLACEHOLDER,
     autoFocus = false,
-    className = 'jott-editor px-4 py-3 text-sm text-gray-900 dark:text-gray-100',
+    className = 'jott-editor px-4 py-3 leading-7 text-sm text-gray-900 dark:text-gray-100',
     onSubmit,
     onCancel,
     onChange,

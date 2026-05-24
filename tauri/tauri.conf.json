@@ -28,7 +28,7 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
-    "externalBin": ["binaries/hono-server"],
+    "externalBin": ["binaries/jottapp-backend"],
     "resources": [],
     "macOS": {
       "minimumSystemVersion": "11.0"

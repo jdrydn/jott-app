@@ -25,7 +25,7 @@ function BlockView({ node, links, onTagClick }: { node: PMBlockNode } & ViewProp
   switch (node.type) {
     case 'paragraph':
       return (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+        <p className="whitespace-pre-wrap text-sm leading-7 text-gray-800 dark:text-gray-200">
           <Inline
             nodes={(node.content ?? []) as PMInlineNode[]}
             links={links}

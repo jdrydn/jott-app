@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
 import { isTauri } from './lib/isTauri';
@@ -13,12 +14,8 @@ export function App() {
   useApplyTheme(profile.data?.theme);
 
   return (
-    <div
-      className={`min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100 ${
-        isTauri ? 'pt-4' : ''
-      }`}
-    >
-      {isTauri ? <div className="jott-titlebar" data-tauri-drag-region /> : null}
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      {isTauri ? <TauriTitlebar /> : null}
       <Switch>
         <Route path="/" component={RootRedirect} />
         <Route path="/start" component={Start} />
@@ -28,6 +25,21 @@ export function App() {
         <Route component={RootRedirect} />
       </Switch>
     </div>
+  );
+}
+
+function TauriTitlebar() {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: native macOS titlebar drag affordance, no ARIA role applies.
+    <div
+      className="jott-titlebar"
+      onMouseDown={(e) => {
+        if (e.button !== 0) return;
+        const win = getCurrentWindow();
+        if (e.detail === 2) win.toggleMaximize();
+        else win.startDragging();
+      }}
+    />
   );
 }
 
