@@ -5,6 +5,7 @@ import profile0004 from './0004_profile.sql' with { type: 'text' };
 import settings0005 from './0005_settings.sql' with { type: 'text' };
 import attachments0006 from './0006_attachments.sql' with { type: 'text' };
 import tagsV2_0007 from './0007_tags_v2.sql' with { type: 'text' };
+import userToPerson0008 from './0009_user_to_person.sql' with { type: 'text' };
 
 export const migrations: readonly string[] = [
   init0001,
@@ -14,4 +15,5 @@ export const migrations: readonly string[] = [
   settings0005,
   attachments0006,
   tagsV2_0007,
+  userToPerson0008,
 ];

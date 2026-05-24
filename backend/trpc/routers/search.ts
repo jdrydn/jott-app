@@ -119,7 +119,7 @@ export const searchRouter = router({
     const q = input.q.trim();
     if (!q) return { people: [], topics: [], entries: [] };
 
-    const people = searchTags(ctx, 'user', q).map(
+    const people = searchTags(ctx, 'person', q).map(
       (r): PersonHit => ({
         tagId: r.id,
         name: r.name,

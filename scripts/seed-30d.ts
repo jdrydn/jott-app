@@ -103,7 +103,7 @@ function main(): void {
     db.insert(tags)
       .values({
         id,
-        type: 'user',
+        type: 'person',
         name,
         initials: defaultInitials(name),
         color: defaultColor(name),

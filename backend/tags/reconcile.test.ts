@@ -36,8 +36,8 @@ describe('reconcileEntryTags', () => {
 
     const allTags = s.db.select().from(tags).all();
     expect(allTags.map((t) => `${t.type}:${t.name}`).sort()).toEqual([
+      'person:priya',
       'topic:q3-plan',
-      'user:priya',
     ]);
 
     // Body now stores ULID markers, not the literal tokens.
@@ -112,13 +112,13 @@ describe('reconcileEntryTags', () => {
     expect(r.tagsCreated).toBe(0);
   });
 
-  test('treats topic and user namespaces independently', () => {
+  test('treats topic and person namespaces independently', () => {
     s = setup('@work and #work');
     reconcileEntryTags(s.db, s.entryId, '@work and #work', 1000);
     const allTags = s.db.select().from(tags).all();
     expect(allTags).toHaveLength(2);
     const types = new Set(allTags.map((t) => t.type));
-    expect(types).toEqual(new Set(['topic', 'user']));
+    expect(types).toEqual(new Set(['topic', 'person']));
   });
 
   test('uses default initials and a palette colour for new tags', () => {

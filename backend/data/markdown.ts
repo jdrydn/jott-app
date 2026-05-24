@@ -148,8 +148,10 @@ function parseTagsTable(text: string): ExportTag[] {
     // Skip the header and separator rows.
     if (id === 'id' || (id ?? '').startsWith('---')) continue;
     if (!id || !name || !initials || !color) continue;
-    if (type !== 'topic' && type !== 'user') continue;
-    out.push({ id, type, name, initials, color });
+    // Accept legacy 'user' from pre-rename exports — normalise to 'person'.
+    const normalisedType = type === 'user' ? 'person' : type;
+    if (normalisedType !== 'topic' && normalisedType !== 'person') continue;
+    out.push({ id, type: normalisedType, name, initials, color });
   }
   return out;
 }

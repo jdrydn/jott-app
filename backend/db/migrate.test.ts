@@ -128,7 +128,7 @@ describe('migrate', () => {
     ).toThrow();
     db.exec(
       `INSERT INTO tags (id, type, name, initials, color, created_at, updated_at)
-       VALUES ('t3', 'user', 'work', 'WO', '#000', 3, 3)`,
+       VALUES ('t3', 'person', 'work', 'WO', '#000', 3, 3)`,
     );
   });
 

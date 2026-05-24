@@ -6,8 +6,8 @@ describe('askPlaceholder', () => {
     expect(askPlaceholder(undefined)).toBe('What was my last week like');
   });
 
-  test('addresses people for user-type tags', () => {
-    expect(askPlaceholder({ type: 'user', name: 'priya' })).toBe('When did I speak to @priya');
+  test('addresses people for person-type tags', () => {
+    expect(askPlaceholder({ type: 'person', name: 'priya' })).toBe('When did I speak to @priya');
   });
 
   test('addresses topics for topic-type tags', () => {

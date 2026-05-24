@@ -82,7 +82,7 @@ describe('entries.list', () => {
     await s.caller.entries.create({ body: 'hi @priya' });
     const { items } = await s.caller.entries.list();
     expect(items[0]?.tags).toHaveLength(1);
-    expect(items[0]?.tags[0]?.tag).toMatchObject({ type: 'user', name: 'priya' });
+    expect(items[0]?.tags[0]?.tag).toMatchObject({ type: 'person', name: 'priya' });
   });
 
   test('tag link reflects current tag.name after rename', async () => {
@@ -244,8 +244,8 @@ describe('entries.create', () => {
     const entry = await s.caller.entries.create({ body: 'met @priya about #q3-plan' });
     const allTags = db.select().from(tags).all();
     expect(allTags.map((t) => `${t.type}:${t.name}`).sort()).toEqual([
+      'person:priya',
       'topic:q3-plan',
-      'user:priya',
     ]);
     const links = db.select().from(entryTags).where(eq(entryTags.entryId, entry.id)).all();
     expect(links).toHaveLength(2);

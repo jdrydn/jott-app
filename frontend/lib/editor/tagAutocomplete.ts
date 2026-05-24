@@ -207,7 +207,7 @@ export const TagAutocomplete = Extension.create<TagAutocompleteOptions>({
       if (item.id === '__new__') {
         const name = currentQuery.trim();
         if (!name) return;
-        const type: TagType = currentSigil === '#' ? 'topic' : 'user';
+        const type: TagType = currentSigil === '#' ? 'topic' : 'person';
         pending = true;
         opts()
           .createTag(type, name)
@@ -230,7 +230,7 @@ export const TagAutocomplete = Extension.create<TagAutocompleteOptions>({
       currentSigil = st.sigil;
       currentQuery = st.query;
       currentRange = { from: st.from, to: st.to };
-      const type: TagType = st.sigil === '#' ? 'topic' : 'user';
+      const type: TagType = st.sigil === '#' ? 'topic' : 'person';
       const matches = opts().suggest(type, st.query).slice(0, MAX_SUGGESTIONS);
       visible = matches;
 

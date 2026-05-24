@@ -29,7 +29,7 @@ export const tags = sqliteTable(
   'tags',
   {
     id: text('id').primaryKey().notNull(),
-    type: text('type', { enum: ['topic', 'user'] }).notNull(),
+    type: text('type', { enum: ['topic', 'person'] }).notNull(),
     name: text('name').notNull(),
     initials: text('initials').notNull(),
     color: text('color').notNull(),

@@ -30,7 +30,7 @@ const NAME_RULE = z
   .transform((n) => n.trim());
 
 const createInput = z.object({
-  type: z.enum(['topic', 'user']),
+  type: z.enum(['topic', 'person']),
   name: NAME_RULE,
 });
 

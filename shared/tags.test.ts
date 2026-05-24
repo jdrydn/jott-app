@@ -67,7 +67,7 @@ describe('extractBareTags', () => {
   test('returns ordered, deduplicated tags', () => {
     const out = extractBareTags('met @priya about #q3-plan; @priya signed off on #q3-plan');
     expect(out).toEqual([
-      { type: 'user', name: 'priya' },
+      { type: 'person', name: 'priya' },
       { type: 'topic', name: 'q3-plan' },
     ]);
   });
@@ -77,10 +77,10 @@ describe('extractBareTags', () => {
     expect(out).toEqual([{ type: 'topic', name: 'work' }]);
   });
 
-  test('separates topic and user namespaces', () => {
+  test('separates topic and person namespaces', () => {
     const out = extractBareTags('@work vs #work');
     expect(out).toEqual([
-      { type: 'user', name: 'work' },
+      { type: 'person', name: 'work' },
       { type: 'topic', name: 'work' },
     ]);
   });
@@ -95,7 +95,7 @@ describe('renderBody', () => {
     const a = '01H4G9X8Y7Z6V5T4S3R2Q1P0N9';
     const b = '01H4G9X8Y7Z6V5T4S3R2Q1P0NA';
     const lookup = new Map([
-      [a, { type: 'user' as const, name: 'priya' }],
+      [a, { type: 'person' as const, name: 'priya' }],
       [b, { type: 'topic' as const, name: 'q3-plan' }],
     ]);
     const body = `met ${formatTagRef(a)} about ${formatTagRef(b)}`;
@@ -143,6 +143,6 @@ describe('defaultColor', () => {
 describe('tagSigil', () => {
   test('maps types to sigils', () => {
     expect(tagSigil('topic')).toBe('#');
-    expect(tagSigil('user')).toBe('@');
+    expect(tagSigil('person')).toBe('@');
   });
 });

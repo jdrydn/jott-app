@@ -37,8 +37,8 @@ describe('search.query — people', () => {
   });
 
   test('substring-matches a person label case-insensitively', async () => {
-    await s.caller.tags.create({ type: 'user', name: 'James Dryden' });
-    await s.caller.tags.create({ type: 'user', name: 'Priya' });
+    await s.caller.tags.create({ type: 'person', name: 'James Dryden' });
+    await s.caller.tags.create({ type: 'person', name: 'Priya' });
 
     const hit = (await s.caller.search.query({ q: 'jam' })).people;
     expect(hit.map((p) => p.name)).toEqual(['James Dryden']);
@@ -58,7 +58,7 @@ describe('search.query — people', () => {
 
   test('caps people results at 5', async () => {
     for (const n of ['ann', 'anna', 'anne', 'annie', 'anders', 'antonio']) {
-      await s.caller.tags.create({ type: 'user', name: n });
+      await s.caller.tags.create({ type: 'person', name: n });
     }
     const hits = (await s.caller.search.query({ q: 'an' })).people;
     expect(hits).toHaveLength(5);
@@ -66,7 +66,7 @@ describe('search.query — people', () => {
 
   test('does not include topics in the people section', async () => {
     await s.caller.tags.create({ type: 'topic', name: 'james-talk' });
-    await s.caller.tags.create({ type: 'user', name: 'James' });
+    await s.caller.tags.create({ type: 'person', name: 'James' });
 
     const result = await s.caller.search.query({ q: 'jam' });
     expect(result.people.map((p) => p.name)).toEqual(['James']);
@@ -74,14 +74,14 @@ describe('search.query — people', () => {
   });
 
   test('returns entryCount = 0 for tag with no entries', async () => {
-    await s.caller.tags.create({ type: 'user', name: 'orphan' });
+    await s.caller.tags.create({ type: 'person', name: 'orphan' });
     const hits = (await s.caller.search.query({ q: 'orphan' })).people;
     expect(hits[0]?.entryCount).toBe(0);
   });
 
   test('escapes LIKE wildcards in the query', async () => {
-    await s.caller.tags.create({ type: 'user', name: 'Alpha' });
-    await s.caller.tags.create({ type: 'user', name: 'Beta' });
+    await s.caller.tags.create({ type: 'person', name: 'Alpha' });
+    await s.caller.tags.create({ type: 'person', name: 'Beta' });
 
     // `%` should be treated as a literal, not a wildcard — so no matches.
     const hits = (await s.caller.search.query({ q: '%' })).people;

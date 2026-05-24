@@ -49,7 +49,7 @@ describe('serializeEntries', () => {
     const tagId = '01HXYZTAG0000000000000001A';
     const tag: ExportTag = {
       id: tagId,
-      type: 'user',
+      type: 'person',
       name: 'James Dryden',
       initials: 'JD',
       color: '#3B82F6',
@@ -66,7 +66,7 @@ describe('serializeEntries', () => {
     // And the Tags section appears at the bottom with a pipe-table.
     expect(out).toContain('<!-- @tags -->');
     expect(out).toContain('| id | type | name | initials | color |');
-    expect(out).toContain(`| ${tagId} | user | James Dryden | JD | #3B82F6 |`);
+    expect(out).toContain(`| ${tagId} | person | James Dryden | JD | #3B82F6 |`);
   });
 });
 

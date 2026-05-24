@@ -60,7 +60,7 @@ export function prepareEntryBody(db: Db, rawBody: string, now: number): Prepared
   }
 
   const body = rawBody.replace(TAG_REGEX, (full, sigil: string, word: string) => {
-    const type: TagType = sigil === '#' ? 'topic' : 'user';
+    const type: TagType = sigil === '#' ? 'topic' : 'person';
     const name = word.toLowerCase();
     const id = bareToId.get(`${type}:${name}`);
     return id ? formatTagRef(id) : full;
