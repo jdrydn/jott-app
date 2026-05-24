@@ -69,7 +69,6 @@ jottapp --help
 - Single executable per OS: macOS arm64/x64, Linux x64/arm64, Windows x64.
 - GitHub Releases.
 - Homebrew tap (`brew install jdrydn/jott/jottapp`) — eventually.
-- `npm i -g jottapp` as a fallback channel.
 
 ---
 
@@ -330,7 +329,7 @@ Gated — each leaves a working, runnable binary.
 - Sidecar build is host-aware: `scripts/build-sidecar.ts` maps `process.platform`/`process.arch` → Bun target → Cargo triple and writes `tauri/binaries/jottapp-backend-<TRIPLE>`. Tauri's `beforeBuildCommand` no longer hard-codes `aarch64-apple-darwin`, so each runner produces the matching sidecar natively.
 - New `Release` workflow (`.github/workflows/release.yml`) fires on `release: published`. Matrix: `macos-14` → `jott-aarch64-apple-darwin.app.zip`, `macos-13` → `jott-x86_64-apple-darwin.app.zip`, `ubuntu-22.04` → `.AppImage` + `.deb`. Each job runs `bun tauri build --ci --bundles <fmts>`; macOS jobs then `ditto`-zip the `.app` (preserves extended attrs / code-sign metadata) and `gh release upload` attaches everything to the triggering release.
 - macOS unsigned (Gatekeeper "unidentified developer" warning). Signing/notarization deferred until an Apple Developer ID is available — the workflow has a clear seam to add `APPLE_*` secrets.
-- Still open for M10: `npm i -g jottapp` channel, README polish, `--help` quality, simple landing page.
+- Still open for M10: README polish (incl. a Quick-start section walking through first-run → onboarding → first jott, deferred until the onboarding flow stabilises), simple landing page.
 
 ### M11 — Releases via Homebrew
 - Homebrew tap repository `jottapp/setup/jottapp`
