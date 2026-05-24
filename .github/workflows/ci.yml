@@ -94,4 +94,9 @@ jobs:
             patchelf
       - run: bun install --frozen-lockfile
       - name: Build Tauri app
+        env:
+          # linuxdeploy ships as an AppImage and needs FUSE to mount itself.
+          # GitHub runners can refuse FUSE mounts even with libfuse2 installed
+          # (sandbox/permission), so make AppImages extract instead.
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: bun tauri build --ci
