@@ -49,9 +49,7 @@ export function SidebarDrawer({
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div
-          className={`flex items-center justify-end gap-2 px-4 ${isTauri ? 'pt-12' : 'pt-4'}`}
-        >
+        <div className={`flex items-center justify-end gap-2 px-4 ${isTauri ? 'pt-12' : 'pt-4'}`}>
           <Link
             href="/settings"
             onClick={onClose}
