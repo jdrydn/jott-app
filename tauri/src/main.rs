@@ -13,7 +13,7 @@ fn configure_window<'a, R: Runtime, M: Manager<R>>(
     let builder = builder
         .title("jott")
         .inner_size(1280.0, 860.0)
-        .min_inner_size(900.0, 600.0)
+        .min_inner_size(400.0, 600.0)
         .resizable(true);
 
     #[cfg(target_os = "macos")]

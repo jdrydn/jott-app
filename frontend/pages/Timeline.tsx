@@ -7,6 +7,7 @@ import { FilterBar, type Filters } from '../components/FilterBar';
 import { Header } from '../components/Header';
 import { SearchResults } from '../components/SearchResults';
 import { Sidebar } from '../components/Sidebar';
+import { SidebarDrawer } from '../components/SidebarDrawer';
 import { trpc } from '../trpc';
 
 export function Timeline() {
@@ -17,6 +18,7 @@ export function Timeline() {
   const [filters, setFilters] = useState<Filters>({});
   const [aiAction, setAiAction] = useState<AiAction | null>(null);
   const [focusedEntryId, setFocusedEntryId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const profile = trpc.profile.get.useQuery();
   const noProfile = profile.isSuccess && profile.data === null;
 
@@ -44,16 +46,36 @@ export function Timeline() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const sidebar = (
+    <Sidebar
+      activeTagId={trash || isSearching ? undefined : filters.tagId}
+      onSetTagFilter={
+        trash || isSearching
+          ? undefined
+          : (tagId) => {
+              setFilters((f) => ({ ...f, tagId }));
+              setDrawerOpen(false);
+            }
+      }
+      trash={trash}
+      onToggleTrash={() => {
+        setTrash((v) => !v);
+        setDrawerOpen(false);
+      }}
+    />
+  );
+
   return (
-    <div className="mx-auto max-w-6xl px-6">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
       <Header
         searchRef={searchRef}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         profileName={profile.data?.name ?? null}
+        onOpenSidebar={() => setDrawerOpen(true)}
       />
       {noProfile ? <NoProfileBanner /> : null}
-      <div className="flex gap-12 py-8">
+      <div className="flex gap-8 py-6 md:py-8 lg:gap-12">
         <main className="min-w-0 flex-1">
           {trash || isSearching ? null : <Composer ref={composerRef} />}
           {trash ? <TrashBanner /> : null}
@@ -85,17 +107,11 @@ export function Timeline() {
             />
           )}
         </main>
-        <aside className="w-64 shrink-0">
-          <Sidebar
-            activeTagId={trash || isSearching ? undefined : filters.tagId}
-            onSetTagFilter={
-              trash || isSearching ? undefined : (tagId) => setFilters((f) => ({ ...f, tagId }))
-            }
-            trash={trash}
-            onToggleTrash={() => setTrash((v) => !v)}
-          />
-        </aside>
+        <aside className="hidden w-64 shrink-0 md:block">{sidebar}</aside>
       </div>
+      <SidebarDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        {sidebar}
+      </SidebarDrawer>
       {aiAction ? (
         <AiPanel initialAction={aiAction} filters={filters} onClose={() => setAiAction(null)} />
       ) : null}
