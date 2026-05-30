@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from 'react';
+import { Link } from 'wouter';
 import { isTauri } from '../lib/isTauri';
 
 export function SidebarDrawer({
@@ -49,8 +50,17 @@ export function SidebarDrawer({
         }`}
       >
         <div
-          className={`flex items-center justify-end px-4 ${isTauri ? 'pt-12' : 'pt-4'}`}
+          className={`flex items-center justify-end gap-2 px-4 ${isTauri ? 'pt-12' : 'pt-4'}`}
         >
+          <Link
+            href="/settings"
+            onClick={onClose}
+            aria-label="Settings"
+            title="Settings"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+          >
+            <GearIcon />
+          </Link>
           <button
             type="button"
             onClick={onClose}
@@ -64,6 +74,24 @@ export function SidebarDrawer({
         <div className="flex-1 px-5 pb-8 pt-2">{children}</div>
       </aside>
     </div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M11.49 3.17a.75.75 0 0 0-1.48 0l-.18 1.08a6 6 0 0 0-1.65.68l-.84-.7a.75.75 0 0 0-1.04 1.04l.7.84a6 6 0 0 0-.68 1.65l-1.08.18a.75.75 0 0 0 0 1.48l1.08.18c.13.59.36 1.14.68 1.65l-.7.84a.75.75 0 0 0 1.04 1.04l.84-.7c.51.32 1.06.55 1.65.68l.18 1.08a.75.75 0 0 0 1.48 0l.18-1.08a6 6 0 0 0 1.65-.68l.84.7a.75.75 0 0 0 1.04-1.04l-.7-.84a6 6 0 0 0 .68-1.65l1.08-.18a.75.75 0 0 0 0-1.48l-1.08-.18a6 6 0 0 0-.68-1.65l.7-.84a.75.75 0 0 0-1.04-1.04l-.84.7a6 6 0 0 0-1.65-.68l-.18-1.08ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+        clipRule="evenodd"
+      />
+    </svg>
   );
 }
 
